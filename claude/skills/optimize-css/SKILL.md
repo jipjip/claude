@@ -5,22 +5,39 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.5"
+  version: "0.6"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
 
 ## Step 1 — Determine mode and target
 
+### 1a — Parse arguments
+
 Parse `$ARGUMENTS`:
 - If the first word is a mode flag, extract it and treat the remainder as the target file(s).
   - Defensive: `defensive` or `-d` → report only, no edits
   - Neutral: `neutral` or `-n` → safe CSS-only edits (default)
   - Aggressive: `aggressive` or `-a` → full rewrites, edits CSS and HTML
-- If no mode flag is present, default to **neutral**.
+- If no mode flag is present, mode is not yet set — check config next.
 - The remaining argument(s) are the target file path(s).
 
 In aggressive mode, also search for a corresponding HTML file alongside the CSS target to enable dead CSS checks and HTML edits.
+
+### 1b — Load config
+
+Look for `optimize-css.config.json`, searching from the target file's directory upward to the project root (first file found wins). If no config is found, all settings use their defaults.
+
+Supported settings (v1):
+
+| Setting | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `mode` | `defensive` \| `neutral` \| `aggressive` | `neutral` | Default mode when no CLI flag is passed. CLI flag takes precedence. |
+| `duplicate_vars` | `yes` \| `no` \| `ask` | `no` | Controls Phase 6 Class 3 behavior — see Phase 6 for details. |
+
+**Precedence:** CLI flag > config file > default.
+
+If a config file is found, note it in the report header so the developer knows which settings are active.
 
 ## Step 2 — Pre-flight detection (Phase 0)
 
@@ -172,7 +189,7 @@ Find two or more `--custom-property` declarations that share the same value. Fla
 Behavior is controlled by the `duplicate_vars` setting (default: `no`):
 
 - **`no`** (default): flag the pair only, no edits. If a raw value (Class 1) matches both tokens, defer that substitution too — report it as blocked pending duplicate resolution.
-- **`yes`**: pick the more semantically specific name (a name describing *purpose* beats one describing *appearance* — e.g. `--brand-red` over `--color-dark`), apply any matching Class 1 substitutions using the winning token, and flag the losing token for deletion. No edits to the losing declaration itself — leave removal to the developer.
+- **`yes`**: pick the more semantically specific name (a name describing *purpose* beats one describing *appearance* — e.g. `--brand-red` over `--color-dark`), delete the losing declaration, and apply any matching Class 1 substitutions using the winning token. Annotate the deletion with `/* [optimize-css] removed duplicate --losing-name — same value as --winning-name (duplicate_vars: yes) */`.
 - **`ask`**: for each near-duplicate pair, present both names and their value, ask which to keep, then proceed as `yes` with the chosen winner.
 
 Until a config file is supported, default to `no` and note in the report that `duplicate_vars: yes` would resolve this automatically.

@@ -1,0 +1,47 @@
+/* Scenario 08 — Config file: duplicate_vars: yes
+   Expected: skill reads optimize-css.config.json and applies duplicate_vars: yes.
+
+   With duplicate_vars: yes (vs default no):
+   - --gray-dark and --color-dark share #1a1a1a → skill picks --gray-dark (more purpose-specific)
+   - background-color: #1a1a1a in .header is NO LONGER blocked → substituted as var(--gray-dark)
+   - --color-dark flagged for removal (not deleted automatically)
+   - All Class 1 and Class 2 substitutions proceed as normal
+*/
+
+:root {
+  --brand-red: #aa0005;
+  --gray-dark: #1a1a1a;
+  /* [optimize-css] removed duplicate --color-dark — same value as --gray-dark (duplicate_vars: yes) */
+  --color-text: #333333;
+}
+
+.header {
+  /* [optimize-css] #1a1a1a → var(--gray-dark) — unblocked by duplicate_vars: yes (winner over --color-dark) */
+  background-color: var(--gray-dark);
+  /* [optimize-css] #aa0005 → var(--brand-red) — token declared at L12 */
+  color: var(--brand-red);
+}
+
+.body-text {
+  /* [optimize-css] #333333 → var(--color-text) — token declared at L15 */
+  color: var(--color-text);
+  font-size: 16px;
+}
+
+.label {
+  /* [optimize-css] #333333 → var(--color-text) — token declared at L15 */
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.caption {
+  /* [optimize-css] #333333 → var(--color-text) — token declared at L15 */
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.link {
+  /* [optimize-css] #aa0005 → var(--brand-red) — token declared at L12 */
+  color: var(--brand-red);
+  text-decoration: underline;
+}
