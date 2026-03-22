@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.4"
+  version: "0.5"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -206,15 +206,32 @@ Full report, no changes made:
 2. **Suggested fixes** — concrete rewrites for each issue
 
 ### Neutral / Aggressive
-For every edit made to the file, add an inline `/* [optimize-css] … */` comment on or directly above the affected line or block. The comment should state what changed and why in one line. Examples:
+For every edit or notable condition, add an inline comment using one of three tags. Place it on the line directly above the affected declaration or block.
 
-- `/* [optimize-css] de-nested from: .component { .title { … } } */`
-- `/* [optimize-css] merged from L13, L23, L28 */`
-- `/* [optimize-css] removed dead rule — color: #00ff00 overridden by #ff00ff (source order) */`
-- `/* [optimize-css] extracted font-family stack → --ff-serif */`
-- `/* [optimize-css] private var --_hrp introduced for padding (overridden in 2 MQs) */`
+**Tag variants:**
 
-These comments serve the developer's review step before committing. They are greppable (`[optimize-css]`) and cost nothing in production — PostCSS preserves them, the minifier strips them.
+- `/* [optimize-css] … */` — a change was made. State what and why in one line.
+- `/* [optimize-css:warn] … */` — something needs attention but no edit was made (e.g. near-duplicate token, desktop-first MQ). Cross-reference any lines it affects.
+- `/* [optimize-css:blocked] … */` — the skill wanted to make an edit but couldn't. State why and what to do to unblock. Cross-reference the source of the block.
+
+**Cross-referencing:** when a `:warn` and a `:blocked` are related, each should name the other's location. The developer should be able to understand the full picture from either comment without reading the report.
+
+**Examples:**
+
+```css
+/* [optimize-css] de-nested from: .component { .title { … } } */
+/* [optimize-css] merged from L13, L23, L28 */
+/* [optimize-css] removed dead rule — color: #00ff00 overridden by #ff00ff (source order) */
+/* [optimize-css] extracted font-family stack → --ff-serif */
+/* [optimize-css] private var --_hrp introduced for padding (overridden in 2 MQs) */
+/* [optimize-css:warn] near-duplicate: --gray-dark and --color-dark share #1a1a1a — blocks background-color in .header (L23) */
+/* [optimize-css:blocked] #1a1a1a matches --gray-dark + --color-dark (L18–L19) — resolve duplicate or set duplicate_vars: yes */
+```
+
+These comments are greppable and cost nothing in production — PostCSS preserves them, the minifier strips them:
+- `grep '[optimize-css]'` — all activity
+- `grep '[optimize-css:warn]'` — all attention items
+- `grep '[optimize-css:blocked]'` — all deferred edits with reasons
 
 Then output the conversation report:
 1. **Changes made** — list each edit with before/after and line reference
