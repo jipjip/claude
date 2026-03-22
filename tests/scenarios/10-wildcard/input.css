@@ -1,0 +1,28 @@
+/* Scenario 10 — Wildcard / structural selector detection
+   Expected: skill flags all wildcard selectors with :warn, no edits made.
+
+   > *  — universal direct child (.card > *)
+   * + * — lobotomised owl (.nav * + *), note intentional pattern
+   * ~ * — general universal sibling (.section * ~ *)
+   .card * — universal descendant
+*/
+
+.card > * {
+  margin-bottom: 16px;
+}
+
+.nav * + * {
+  margin-left: 8px;
+}
+
+.section * ~ * {
+  padding-top: 12px;
+}
+
+.card * {
+  box-sizing: border-box;
+}
+
+.title {
+  font-size: 24px;
+}

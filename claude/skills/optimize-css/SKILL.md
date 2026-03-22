@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.7"
+  version: "0.8"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -90,6 +90,29 @@ Identify all descendant selectors and tag selectors used inside a class (e.g. `.
 - **Aggressive**: replace with explicit element classes in both CSS and HTML.
 - **Neutral**: flag each one, suggest the explicit class name, but do not edit.
 - **Defensive**: flag each one with the suggested class name.
+
+#### Wildcard / structural selectors
+
+Scan for selectors containing universal wildcards used as structural tools:
+
+- `> *` — universal direct child
+- `* + *` — adjacent universal sibling (lobotomised owl pattern)
+- `* ~ *` — general universal sibling
+- `*` as the sole or primary target (e.g. `.card *`)
+
+For each match, flag with `[optimize-css:warn]`. State what elements are likely targeted (infer from context where possible) and suggest a named alternative. No automatic fix — naming elements requires knowing developer intent.
+
+Note when the lobotomised owl (`* + *`) is detected: it is a known intentional pattern. Flag it but acknowledge the intent.
+
+No edits in any mode — `:warn` only.
+
+```css
+/* [optimize-css:warn] > * targets all direct children of .card — fragile if new elements are added; name the intended children instead (e.g. .card__content) */
+.card > * { margin-bottom: 16px; }
+
+/* [optimize-css:warn] * + * (lobotomised owl) — targets every sibling pair inside .nav; intentional pattern but fragile; consider .nav__item + .nav__item */
+.nav * + * { margin-left: 8px; }
+```
 
 #### `!important` detection
 
@@ -240,9 +263,6 @@ Integrate these checks into the appropriate phases above.
 ### Dead CSS
 - Flag selectors with no matching element in the HTML (aggressive mode only — requires HTML file).
 - In neutral/defensive mode, note that dead CSS check was skipped (no HTML available).
-
-### Wildcard / structural selectors
-- Flag `> *`, `* + *`, and similar structural selectors that create invisible specificity or fragile DOM dependencies. Suggest named elements instead.
 
 ## Step 4 — Report
 
