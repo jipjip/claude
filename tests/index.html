@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Playground</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <div class="navbar__brand">Brand</div>
+      <ul class="navbar__links">
+        <li><a href="#" class="navbar__link">Home</a></li>
+        <li><a href="#" class="navbar__link">About</a></li>
+        <li><a href="#" class="navbar__link">Work</a></li>
+        <li><a href="#" class="navbar__link">Contact</a></li>
+      </ul>
+      <button class="navbar__cta">Get Started</button>
+    </nav>
+
+    <!-- HEADER / HERO -->
+    <header class="hero">
+      <div class="hero__content">
+        <span class="hero__badge">New release</span>
+        <h1 class="hero__title">Build something <span class="hero__emphasis">beautiful</span></h1>
+        <p class="hero__subtitle">
+          A playground for testing and experimenting with CSS layouts,
+          components, and visual effects.
+        </p>
+        <div class="hero__actions">
+          <button class="btn btn--primary">Get Started</button>
+          <button class="btn btn--ghost">Learn More</button>
+        </div>
+      </div>
+      <div class="hero__visual" aria-hidden="true"></div>
+    </header>
+
+    <main class="main">
+
+      <!-- COMPONENT 1: CARD GRID -->
+      <section class="section">
+        <h2 class="section__title">Featured Cards</h2>
+        <div class="card-grid">
+          <article class="card">
+            <div class="card__image"></div>
+            <div class="card__body">
+              <span class="card__tag">Design</span>
+              <h3 class="card__title">Card Title One</h3>
+              <p class="card__text">Short description that gives context about what this card is about.</p>
+              <a href="#" class="card__link">Read more &rarr;</a>
+            </div>
+          </article>
+          <article class="card card--featured">
+            <div class="card__image"></div>
+            <div class="card__body">
+              <span class="card__tag">Development</span>
+              <h3 class="card__title">Card Title Two</h3>
+              <p class="card__text">Short description that gives context about what this card is about.</p>
+              <a href="#" class="card__link">Read more &rarr;</a>
+            </div>
+          </article>
+          <article class="card">
+            <div class="card__image"></div>
+            <div class="card__body">
+              <span class="card__tag">Strategy</span>
+              <h3 class="card__title">Card Title Three</h3>
+              <p class="card__text">Short description that gives context about what this card is about.</p>
+              <a href="#" class="card__link">Read more &rarr;</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- COMPONENT 2: PRICING TABLE -->
+      <section class="section section--alt">
+        <div class="section__inner">
+        <h2 class="section__title">Pricing</h2>
+        <div class="pricing-grid">
+          <div class="pricing-card">
+            <h3 class="pricing-card__plan">Starter</h3>
+            <div class="pricing-card__price">
+              <span class="pricing-card__currency">$</span>
+              <span class="pricing-card__amount">9</span>
+              <span class="pricing-card__period">/mo</span>
+            </div>
+            <ul class="pricing-card__features">
+              <li class="pricing-card__feature">5 Projects</li>
+              <li class="pricing-card__feature">10 GB Storage</li>
+              <li class="pricing-card__feature">Basic Analytics</li>
+              <li class="pricing-card__feature pricing-card__feature--disabled">Priority Support</li>
+              <li class="pricing-card__feature pricing-card__feature--disabled">Custom Domain</li>
+            </ul>
+            <button class="btn btn--ghost">Choose Starter</button>
+          </div>
+          <div class="pricing-card pricing-card--highlighted">
+            <span class="pricing-card__badge">Most Popular</span>
+            <h3 class="pricing-card__plan">Pro</h3>
+            <div class="pricing-card__price">
+              <span class="pricing-card__currency">$</span>
+              <span class="pricing-card__amount">29</span>
+              <span class="pricing-card__period">/mo</span>
+            </div>
+            <ul class="pricing-card__features">
+              <li class="pricing-card__feature">Unlimited Projects</li>
+              <li class="pricing-card__feature">100 GB Storage</li>
+              <li class="pricing-card__feature">Advanced Analytics</li>
+              <li class="pricing-card__feature">Priority Support</li>
+              <li class="pricing-card__feature pricing-card__feature--disabled">Custom Domain</li>
+            </ul>
+            <button class="btn btn--on-accent">Choose Pro</button>
+          </div>
+          <div class="pricing-card">
+            <h3 class="pricing-card__plan">Enterprise</h3>
+            <div class="pricing-card__price">
+              <span class="pricing-card__currency">$</span>
+              <span class="pricing-card__amount">99</span>
+              <span class="pricing-card__period">/mo</span>
+            </div>
+            <ul class="pricing-card__features">
+              <li class="pricing-card__feature">Unlimited Projects</li>
+              <li class="pricing-card__feature">1 TB Storage</li>
+              <li class="pricing-card__feature">Advanced Analytics</li>
+              <li class="pricing-card__feature">Priority Support</li>
+              <li class="pricing-card__feature">Custom Domain</li>
+            </ul>
+            <button class="btn btn--ghost">Choose Enterprise</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- COMPONENT 3: TESTIMONIAL CAROUSEL -->
+      <section class="section">
+        <h2 class="section__title">What people say</h2>
+        <div class="testimonials">
+          <blockquote class="testimonial testimonial--active">
+            <p class="testimonial__quote">
+              "This is absolutely the best tool I have used this year. It changed
+              the way I approach my work completely."
+            </p>
+            <footer class="testimonial__author">
+              <div class="testimonial__avatar"></div>
+              <div>
+                <strong class="testimonial__name">Alex Johnson</strong>
+                <span class="testimonial__role">Senior Designer, Acme Corp</span>
+              </div>
+            </footer>
+          </blockquote>
+          <blockquote class="testimonial">
+            <p class="testimonial__quote">
+              "Incredible results in record time. Our team productivity went up
+              significantly after we started using it."
+            </p>
+            <footer class="testimonial__author">
+              <div class="testimonial__avatar"></div>
+              <div>
+                <strong class="testimonial__name">Maria Garcia</strong>
+                <span class="testimonial__role">CTO, StartupXYZ</span>
+              </div>
+            </footer>
+          </blockquote>
+          <blockquote class="testimonial">
+            <p class="testimonial__quote">
+              "Simple, powerful, and delightful to use. I recommend this to
+              everyone on my team without hesitation."
+            </p>
+            <footer class="testimonial__author">
+              <div class="testimonial__avatar"></div>
+              <div>
+                <strong class="testimonial__name">Sam Lee</strong>
+                <span class="testimonial__role">Product Manager, Globex</span>
+              </div>
+            </footer>
+          </blockquote>
+          <div class="testimonials__dots">
+            <button class="testimonials__dot testimonials__dot--active" aria-label="Testimonial 1"></button>
+            <button class="testimonials__dot" aria-label="Testimonial 2"></button>
+            <button class="testimonials__dot" aria-label="Testimonial 3"></button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer__top">
+        <div class="footer__brand">
+          <span class="footer__logo">Brand</span>
+          <p class="footer__tagline">Building better things, one pixel at a time.</p>
+        </div>
+        <nav class="footer__nav">
+          <div class="footer__nav-group">
+            <h4 class="footer__nav-heading">Product</h4>
+            <ul class="footer__nav-list">
+              <li><a href="#" class="footer__nav-link">Features</a></li>
+              <li><a href="#" class="footer__nav-link">Pricing</a></li>
+              <li><a href="#" class="footer__nav-link">Changelog</a></li>
+            </ul>
+          </div>
+          <div class="footer__nav-group">
+            <h4 class="footer__nav-heading">Company</h4>
+            <ul class="footer__nav-list">
+              <li><a href="#" class="footer__nav-link">About</a></li>
+              <li><a href="#" class="footer__nav-link">Blog</a></li>
+              <li><a href="#" class="footer__nav-link">Careers</a></li>
+            </ul>
+          </div>
+          <div class="footer__nav-group">
+            <h4 class="footer__nav-heading">Legal</h4>
+            <ul class="footer__nav-list">
+              <li><a href="#" class="footer__nav-link">Privacy</a></li>
+              <li><a href="#" class="footer__nav-link">Terms</a></li>
+              <li><a href="#" class="footer__nav-link">Cookies</a></li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      <div class="footer__bottom">
+        <p class="footer__copy">&copy; 2026 Brand. All rights reserved.</p>
+        <div class="footer__socials">
+          <a href="#" class="footer__social-link" aria-label="Twitter">TW</a>
+          <a href="#" class="footer__social-link" aria-label="GitHub">GH</a>
+          <a href="#" class="footer__social-link" aria-label="LinkedIn">LI</a>
+        </div>
+      </div>
+    </footer>
+
+  </body>
+</html>
