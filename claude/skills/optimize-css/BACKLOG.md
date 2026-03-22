@@ -25,6 +25,15 @@
 
 - Selector compaction using `:is()` and `:where()`: after MQ consolidation, identify groups of selectors in the same block that share identical declarations and can be merged. Use `:is()` when the highest specificity in the group should be preserved (e.g. `.component` and `.component .title` both setting `font-family` → `:is(.component, .component .title)`). Use `:where()` when zero specificity is explicitly desired. Flag cases where the specificity change would alter the cascade.
 
+## Should Have (config)
+
+- Settings file (`optimize-css.config.json`) in the project root. Needed for correctness, not just convenience — some skill decisions are ambiguous without user intent. CLI arguments take precedence. Key settings identified so far:
+  - `duplicate_vars: yes | no | ask` — controls Phase 6 Class 3 behavior: when two tokens share the same value, should the skill consolidate them automatically (`yes`), flag only (`no`), or pause and ask per pair (`ask`)? Default: `no` (flag only). **Why this matters:** company guidelines or design systems may require specific naming even when values coincide — e.g. `--color-interactive` and `--color-brand` might both be `#aa0005` today but diverge on a rebrand. Auto-merging would silently couple them.
+  - `mode: defensive | neutral | aggressive` — default mode when no flag is passed
+  - `mobile_first: true | false` — declare the file's intended viewport strategy; prevents incorrect desktop-first flagging
+  - `ignore_prefixes: []` — class prefixes the skill should never touch (e.g. `woocommerce-`, `yith-`)
+  - `phases: []` — opt individual phases on/off
+
 ## Could Have
 
 - Rewrite to Mobile First: detect desktop-first patterns (max-width queries, base styles assuming large screen) and convert the file to a mobile-first structure — base styles become the smallest viewport, queries become min-width ascending.
@@ -34,6 +43,5 @@
 
 - Multi-file mode: accept a folder or list of files and cross-reference selectors across them before flagging dead CSS or suggesting token moves.
 - `@property` suggestions: for custom properties used in animations or transitions, suggest typed `@property` declarations for better performance and interpolation.
-- Config file support: look for an `optimize-css.config.json` in the project root and let its values override defaults. Useful for setting a default mode, toggling phases on/off, declaring mobile/desktop-first explicitly, and defining ignore lists. CLI arguments take precedence over config. Revisit once Must Have phases are stable. Note: this skill is a developer tool (run locally, commit the result) — not a CI/CD pipeline step. AI is non-deterministic, slow, and costly to run on every build. Config support is for local developer convenience only.
 - Plugin/framework ignore list: accept a list of class prefixes (e.g. `woocommerce-`, `yith-`, `tinv-`, `wapf-`, `bapf_`, `dgwt-`, `irs--`) that the skill should never rename, flag for de-nesting, or attempt to restructure. Phase 1 should skip or annotate selectors matching these prefixes rather than suggesting class renames. Can be passed as a CLI argument or defined in config. Default set of known WordPress/WooCommerce prefixes can be built in.
 - Selector obfuscation: a post-processing step (separate skill) that replaces human-readable class names with short opaque codes (e.g. `.pricing-card__feature--disabled` → `.a1b`) across CSS and HTML simultaneously, generating a sourcemap so the transform is reversible. This is a performance optimization — shorter selectors reduce file size and parsing time. Preconditions: styling must be stable, the project must own both CSS and HTML. Assumed convention: classes prefixed with `js-` are never styled and must be left untouched (they are the safe hook for JavaScript). IDs are already excluded from styling (specificity rule), so they are out of scope too.

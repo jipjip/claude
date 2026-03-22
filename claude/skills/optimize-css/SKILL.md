@@ -167,9 +167,15 @@ Suggest a token name and the correct scope to declare it (`:root` for global, or
 
 **Class 3 — Near-duplicate tokens**
 
-Find two or more `--custom-property` declarations that share the same value. Flag them as near-duplicates — they may have different semantic intent, so automatic merging is unsafe.
+Find two or more `--custom-property` declarations that share the same value. Flag them as near-duplicates — they may have different semantic intent (e.g. `--color-interactive` and `--color-brand` might both be `#aa0005` today but diverge on a rebrand).
 
-Suggest which name to keep based on specificity of meaning (e.g., `--brand-red` is more specific than `--color-dark`). Require manual resolution in all modes — flag only, no edits.
+Behavior is controlled by the `duplicate_vars` setting (default: `no`):
+
+- **`no`** (default): flag the pair only, no edits. If a raw value (Class 1) matches both tokens, defer that substitution too — report it as blocked pending duplicate resolution.
+- **`yes`**: pick the more semantically specific name (a name describing *purpose* beats one describing *appearance* — e.g. `--brand-red` over `--color-dark`), apply any matching Class 1 substitutions using the winning token, and flag the losing token for deletion. No edits to the losing declaration itself — leave removal to the developer.
+- **`ask`**: for each near-duplicate pair, present both names and their value, ask which to keep, then proceed as `yes` with the chosen winner.
+
+Until a config file is supported, default to `no` and note in the report that `duplicate_vars: yes` would resolve this automatically.
 
 ## TODO
 

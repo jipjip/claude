@@ -2,15 +2,16 @@
    Expected: skill identifies three classes of token issues.
 
    Class 1 — hardcoded value matches existing token:
-   - #aa0005 declared as --brand-red (L9), but used raw at L18 and L34
+   - #aa0005 declared as --brand-red (L17), but used raw at L24 and L43
 
    Class 2 — repeated raw value, no token:
-   - #333333 used 3x (L22, L27, L32) — brand/identity property, threshold 2+
+   - #333333 used 3x (L28, L33, L38) — brand/identity property, threshold 2+
    - suggest --color-text: #333333 declared at :root
 
    Class 3 — near-duplicate tokens:
-   - --gray-dark: #1a1a1a (L10) and --color-dark: #1a1a1a (L11) — same value
-   - flag for manual resolution, suggest keeping --gray-dark or --color-dark
+   - --gray-dark: #1a1a1a (L18) and --color-dark: #1a1a1a (L19) — same value
+   - flag for manual resolution (duplicate_vars: no default)
+   - background-color: #1a1a1a (L23) deferred — blocked pending duplicate resolution
 */
 
 :root {
