@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.6"
+  version: "0.7"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -81,13 +81,47 @@ Report what was detected and what will be skipped before proceeding to Phase 1.
 
 Run these phases in order.
 
-### Phase 1 — De-nesting
+### Phase 1 — De-nesting and `!important` resolution
+
+#### De-nesting
 
 Identify all descendant selectors and tag selectors used inside a class (e.g. `.navbar__links a`, `.footer__nav-group ul`).
 
 - **Aggressive**: replace with explicit element classes in both CSS and HTML.
 - **Neutral**: flag each one, suggest the explicit class name, but do not edit.
 - **Defensive**: flag each one with the suggested class name.
+
+#### `!important` detection
+
+Scan every declaration with `!important`. For each one, determine which case applies:
+
+For each `!important`, first check for dead rules it creates, then determine the case.
+
+**Pre-check — dead rules caused by `!important`**: if a lower-specificity rule with `!important` makes a higher-specificity rule for the same property unreachable, that higher-specificity rule is dead. Remove the dead declaration first (neutral/aggressive), then re-evaluate the `!important` — it will often collapse to Case 1. Assume the `!important` reflects developer intent; the dead rule is the collateral damage to clean up.
+
+**Case 1 — Unnecessary**: after any dead rule removal, no higher-specificity conflicting rule remains in the file. The `!important` wins unconditionally and adds no value.
+- **Neutral/Aggressive**: remove the `!important`. Annotate: `/* [optimize-css] removed unnecessary !important — no conflicting rule in file */`
+- **Defensive**: flag with suggested removal.
+
+**Case 2 — Conflict within this file**: a more specific selector in the same file sets the same property and would otherwise win, and it is not dead. Identify the conflicting selector and suggest the fix.
+- **Neutral**: log `[optimize-css:warn]` naming the conflicting selector. Do not edit.
+- **Aggressive**: if de-nesting the conflicting rule unambiguously resolves it, apply the de-nest and remove the `!important`.
+- **Defensive**: flag with the conflicting selector identified and the suggested fix.
+
+**Case 3 — Ambiguous or likely external**: no conflicting rule in this file, but the selector pattern suggests an external conflict (plugin prefix, framework class, third-party namespace).
+- **All modes**: log `[optimize-css:warn]`. State that the conflict is likely external and cannot be safely resolved. Do not edit.
+
+Example annotations:
+```css
+/* [optimize-css] removed dead rule — color: blue unreachable, .button color: red !important always wins */
+/* .card .button { color: blue; } */
+
+/* [optimize-css] removed unnecessary !important — no conflicting rule remains after dead rule removal */
+color: red;
+
+/* [optimize-css:warn] !important — conflict likely external (wc- prefix suggests WooCommerce); do not remove without checking plugin CSS */
+color: green !important;
+```
 
 ### Phase 2 — Component hierarchy mapping
 
@@ -197,9 +231,6 @@ Until a config file is supported, default to `no` and note in the report that `d
 ## TODO
 
 Integrate these checks into the appropriate phases above.
-
-### `!important`
-Flag every usage. Determine whether it exists because of a specificity conflict, and if so identify the conflicting selector and the structural fix.
 
 ### Specificity
 - Flag selectors that climb specificity unnecessarily (chained classes, tag qualifiers, deep descendant selectors).

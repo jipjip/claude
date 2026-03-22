@@ -1,0 +1,27 @@
+/* Scenario 09 — !important detection and resolution
+   Expected behavior per case:
+
+   Case 1 (via dead rule removal):
+   - .button color: red !important makes .card .button color: blue unreachable → remove dead rule
+   - after removal, !important has no conflict → remove it too
+   - result: .button { color: red } — clean
+
+   Case 3 — ambiguous / likely external:
+   - .wc-product .price color: green !important → warn, wc- prefix = likely plugin CSS, do not touch
+*/
+
+.title {
+  font-size: 24px !important;
+}
+
+.button {
+  color: red !important;
+}
+
+.card .button {
+  color: blue;
+}
+
+.wc-product .price {
+  color: green !important;
+}
