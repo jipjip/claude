@@ -1,0 +1,58 @@
+/* Scenario 06 — Phase 0 SCSS detection and scope identification
+   Expected: skill detects SCSS, marks out-of-scope constructs, proceeds on in-scope rules.
+
+   Out-of-scope (skill must not touch):
+   - $primary, $spacing-md (variable declarations)
+   - @mixin flex-center (mixin definition)
+   - @include flex-center (mixin call)
+   - %visually-hidden (placeholder selector)
+
+   In-scope (skill should optimize):
+   - .component and .title (nested → de-nest in aggressive)
+   - @media blocks (consolidate: two 768px blocks should merge)
+*/
+
+$primary: #aa0005;
+$spacing-md: 20px;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+%visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.component {
+  @include flex-center;
+  color: $primary;
+  padding: $spacing-md;
+
+  .title {
+    font-size: 24px;
+    color: $primary;
+  }
+}
+
+.label {
+  font-size: 14px;
+  color: #333333;
+}
+
+@media (max-width: 768px) {
+  .component {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .label {
+    font-size: 12px;
+  }
+}

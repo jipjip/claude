@@ -22,7 +22,45 @@ Parse `$ARGUMENTS`:
 
 In aggressive mode, also search for a corresponding HTML file alongside the CSS target to enable dead CSS checks and HTML edits.
 
-## Step 2 — Optimization process
+## Step 2 — Pre-flight detection (Phase 0)
+
+Before running any optimization phase, identify what the file is and whether it can be processed. If Phase 0 fails, stop immediately — do not proceed to the optimization phases.
+
+### Bail-out: utility-first frameworks
+
+If any of the following are detected, stop and report — the skill does not apply:
+
+- `@tailwind` directive (any variant: `base`, `components`, `utilities`)
+- `@apply` with utility class names
+- A class-per-property density suggesting utility-first output (e.g. `.flex`, `.p-4`, `.text-sm`, `.bg-blue-500`)
+
+Report which framework was detected and why optimization does not apply.
+
+### Dialect detection
+
+Identify the CSS dialect from extension and content:
+
+| Dialect | Signals | Supported |
+| --- | --- | --- |
+| Plain CSS | `.css`, no preprocessor syntax | Yes |
+| SCSS | `.scss`, `$variable`, `@mixin`, `@include`, `&` nesting with braces | Yes — see scope below |
+| SASS (indented) | `.sass`, indented syntax without braces or semicolons | No — stop and report |
+| LESS | `.less`, `@variable: value`, `.mixin()` calls | No — stop and report |
+
+### SCSS scope identification
+
+If SCSS is detected, mark these constructs as out-of-scope before any phase runs. Do not edit, rename, or flag them:
+
+- `@mixin` and `@function` blocks — reusable patterns, skip entirely
+- `@include` calls — mixin invocations, output is dynamic
+- `@extend` and `%placeholder` selectors — complex specificity implications, skip
+- `$variable` declarations — the source token system, do not touch
+- `#{interpolation}` — dynamic selector fragments, unpredictable output
+- Variables flagged `!default` — library convention, hands off
+
+Report what was detected and what will be skipped before proceeding to Phase 1.
+
+## Step 3 — Optimization process
 
 Run these phases in order.
 
@@ -80,7 +118,7 @@ Introduce a private custom property using the `--_` prefix. Derive the name from
 - **Selector abbreviation** (max 3 chars):
   - Single word → remove vowels, max 3: `.card` → `crd`, `.header` → `hdr`, `.container` → `ctr`
   - Hyphenated → first letter of each part, max 3: `.image-slider` → `isl`, `.pricing-card` → `pc`
-  - BEM element (`__`) → abbreviate block + element: `.footer__nav` → `fn`
+  - Double-underscore separator (`__`) → abbreviate both parts: `.footer__nav` → `fn`
 - **Property abbreviation** (max 3 chars):
   - Short single word → 1 char: `padding` → `p`, `width` → `w`, `margin` → `m`, `gap` → `g`
   - Multi-word → first letter of each word: `background-color` → `bgc`, `grid-template-columns` → `gtc`, `max-height` → `mh`, `border-radius` → `br`, `padding-inline` → `pi`
@@ -100,6 +138,39 @@ Introduce a private custom property using the `--_` prefix. Derive the name from
 **Aggressive**: create new tokens where needed. Apply private layout var pattern. Remove selectors that become empty after extraction.
 **Defensive**: flag opportunities that pass the cost/benefit gate, suggest token names and initialization values, no edits.
 
+### Phase 6 — Token consolidation
+
+Scan the full file for three classes of issues. In SCSS files, only CSS custom properties (`--var`) are in scope — `$variable` declarations are out-of-scope and are not touched.
+
+**Class 1 — Hardcoded value matches an existing token**
+
+For each `--custom-property: value` declared in the file, scan all other declarations for the same raw value used as a literal. Flag each occurrence as "should be `var(--token-name)`".
+
+- **Neutral**: substitute — token already exists, this is a safe reference fix.
+- **Aggressive**: substitute.
+- **Defensive**: flag with the suggested substitution.
+
+**Class 2 — Repeated raw value with no token**
+
+Find raw values appearing more than once where creating a token would be byte-neutral or shorter. Apply threshold by property type:
+
+- Brand/identity properties (`color`, `background-color`, `font-family`, `border-color`): flag at 2+ occurrences.
+- All other properties: flag at 3+ occurrences.
+
+Only flag if the value is long enough to warrant a token (value length > suggested var name + `var()` overhead).
+
+Suggest a token name and the correct scope to declare it (`:root` for global, or the nearest shared ancestor selector for component-scoped).
+
+- **Neutral**: flag only — do not create new tokens.
+- **Aggressive**: create the token at the suggested scope and substitute all occurrences.
+- **Defensive**: flag with suggested token name and declaration.
+
+**Class 3 — Near-duplicate tokens**
+
+Find two or more `--custom-property` declarations that share the same value. Flag them as near-duplicates — they may have different semantic intent, so automatic merging is unsafe.
+
+Suggest which name to keep based on specificity of meaning (e.g., `--brand-red` is more specific than `--color-dark`). Require manual resolution in all modes — flag only, no edits.
+
 ## TODO
 
 Integrate these checks into the appropriate phases above.
@@ -109,13 +180,8 @@ Flag every usage. Determine whether it exists because of a specificity conflict,
 
 ### Specificity
 - Flag selectors that climb specificity unnecessarily (chained classes, tag qualifiers, deep descendant selectors).
-- Flag modifiers that rely on parent context to work (e.g. `.parent--mod .block__el`).
-- Flag cross-block coupling: one block's modifier overriding another block's styles (e.g. `.card--highlighted .btn--ghost`).
-
-### Token consolidation
-- Flag hardcoded values already covered by an existing custom property.
-- Flag raw values repeated 2+ times that are longer than a reasonable variable name — suggest a new token name.
-- Flag near-duplicate tokens that serve the same purpose.
+- Flag modifiers that rely on parent context to work (e.g. `.parent.is-active .child-element`).
+- Flag cross-block coupling: one component's state overriding another component's styles (e.g. `.card.is-highlighted .button`).
 
 ### Dead CSS
 - Flag selectors with no matching element in the HTML (aggressive mode only — requires HTML file).
@@ -124,7 +190,7 @@ Flag every usage. Determine whether it exists because of a specificity conflict,
 ### Wildcard / structural selectors
 - Flag `> *`, `* + *`, and similar structural selectors that create invisible specificity or fragile DOM dependencies. Suggest named elements instead.
 
-## Step 3 — Report
+## Step 4 — Report
 
 Structure output differently per mode:
 
@@ -134,7 +200,17 @@ Full report, no changes made:
 2. **Suggested fixes** — concrete rewrites for each issue
 
 ### Neutral / Aggressive
-Lead with what changed:
+For every edit made to the file, add an inline `/* [optimize-css] … */` comment on or directly above the affected line or block. The comment should state what changed and why in one line. Examples:
+
+- `/* [optimize-css] de-nested from: .component { .title { … } } */`
+- `/* [optimize-css] merged from L13, L23, L28 */`
+- `/* [optimize-css] removed dead rule — color: #00ff00 overridden by #ff00ff (source order) */`
+- `/* [optimize-css] extracted font-family stack → --ff-serif */`
+- `/* [optimize-css] private var --_hrp introduced for padding (overridden in 2 MQs) */`
+
+These comments serve the developer's review step before committing. They are greppable (`[optimize-css]`) and cost nothing in production — PostCSS preserves them, the minifier strips them.
+
+Then output the conversation report:
 1. **Changes made** — list each edit with before/after and line reference
 2. **Remaining issues** — items out of scope for this mode, with a note on which mode would address them
 3. **Suggestions** — anything requiring manual judgement that the skill intentionally left alone

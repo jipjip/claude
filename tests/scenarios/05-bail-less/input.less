@@ -1,0 +1,31 @@
+/* Scenario 05 — Phase 0 bail-out: LESS
+   Expected: skill detects .less extension and @variable syntax, stops immediately.
+   No edits made. File unchanged.
+*/
+
+@primary: #aa0005;
+@font-size-base: 16px;
+@spacing-md: 20px;
+
+.flex-center() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.component {
+  .flex-center();
+  color: @primary;
+  font-size: @font-size-base;
+  padding: @spacing-md;
+
+  .title {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .component {
+    flex-direction: column;
+  }
+}

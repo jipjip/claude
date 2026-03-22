@@ -1,0 +1,45 @@
+/* Scenario 07 — Phase 6 token consolidation
+   Expected: skill identifies three classes of token issues.
+
+   Class 1 — hardcoded value matches existing token:
+   - #aa0005 declared as --brand-red (L9), but used raw at L18 and L34
+
+   Class 2 — repeated raw value, no token:
+   - #333333 used 3x (L22, L27, L32) — brand/identity property, threshold 2+
+   - suggest --color-text: #333333 declared at :root
+
+   Class 3 — near-duplicate tokens:
+   - --gray-dark: #1a1a1a (L10) and --color-dark: #1a1a1a (L11) — same value
+   - flag for manual resolution, suggest keeping --gray-dark or --color-dark
+*/
+
+:root {
+  --brand-red: #aa0005;
+  --gray-dark: #1a1a1a;
+  --color-dark: #1a1a1a;
+}
+
+.header {
+  background-color: #1a1a1a;
+  color: #aa0005;
+}
+
+.body-text {
+  color: #333333;
+  font-size: 16px;
+}
+
+.label {
+  color: #333333;
+  font-weight: 600;
+}
+
+.caption {
+  color: #333333;
+  font-size: 12px;
+}
+
+.link {
+  color: #aa0005;
+  text-decoration: underline;
+}

@@ -2,6 +2,12 @@
 
 ## Must Have
 
+- Phase 0 pre-flight detection (implemented in SKILL.md, needs testing across real files):
+  - Bail-out detection: `@tailwind`, `@apply`, utility-first class density (Tailwind, UnoCSS, WindiCSS)
+  - Dialect detection: plain CSS (supported), SCSS (supported with scope limits), SASS indented (stop), LESS (stop)
+  - SCSS scope: mark `@mixin`, `@function`, `@include`, `@extend`, `%placeholder`, `$variable`, `#{interpolation}`, `!default` as out-of-scope before any phase runs
+  - Convention agnostic: the skill works regardless of naming convention (BEM, SMACSS, CUBE CSS, utility-hybrid, or none)
+
 - Integrate TODO checks into the appropriate phases:
   - `!important` → Phase 1 (de-nesting often resolves the specificity conflict causing it)
   - Specificity & cross-block coupling → Phase 1 / Phase 2
@@ -15,14 +21,19 @@
 - Hoist CSS vars to the appropriate parent level based on the component hierarchy map (Phase 2 → Phase 5).
 - Private layout var pattern: for structural/layout properties (`padding`, `margin`, `gap`, etc.) on components designed to be orchestrated from outside, introduce a private var using the `--_` prefix convention. Name using 2–3 chars from the component name + 1–2 chars for the property (e.g. `.card` + `padding` → `--_crdp`). Use a nested fallback to preserve the global token connection: `padding: var(--_crdp, var(--spacing-md))`. MQ overrides then only set the private var: `--_crdp: var(--spacing-lg)`. Benefits: the actual property appears once, MQ lines are shorter, and the `--_` prefix signals the var is internal to the component (not part of its public API). Needs heuristic to detect layout-orchestrated components — likely requires Phase 2 hierarchy context.
 
+## Should Have (continued)
+
+- Selector compaction using `:is()` and `:where()`: after MQ consolidation, identify groups of selectors in the same block that share identical declarations and can be merged. Use `:is()` when the highest specificity in the group should be preserved (e.g. `.component` and `.component .title` both setting `font-family` → `:is(.component, .component .title)`). Use `:where()` when zero specificity is explicitly desired. Flag cases where the specificity change would alter the cascade.
+
 ## Could Have
 
 - Rewrite to Mobile First: detect desktop-first patterns (max-width queries, base styles assuming large screen) and convert the file to a mobile-first structure — base styles become the smallest viewport, queries become min-width ascending.
-- SCSS support: the skill description mentions SCSS but the process currently assumes flat CSS. Handle `&` nesting, variables (`$var`), and `@mixin` / `@include` patterns.
+- SCSS deeper support: beyond scope identification (Phase 0), handle SCSS-specific optimization opportunities — e.g. detecting redundant `@include` calls, flagging `$variable` values that duplicate CSS custom properties, and identifying `@extend` chains that could be flattened.
 
 ## Would Have
 
 - Multi-file mode: accept a folder or list of files and cross-reference selectors across them before flagging dead CSS or suggesting token moves.
 - `@property` suggestions: for custom properties used in animations or transitions, suggest typed `@property` declarations for better performance and interpolation.
-- Config file support: look for an `optimize-css.config.json` in the project root and let its values override defaults. Useful for setting a default mode, toggling phases on/off, ignoring specific selectors, and declaring mobile/desktop-first explicitly. CLI arguments take precedence over config. Revisit once Must Have phases are stable.
+- Config file support: look for an `optimize-css.config.json` in the project root and let its values override defaults. Useful for setting a default mode, toggling phases on/off, declaring mobile/desktop-first explicitly, and defining ignore lists. CLI arguments take precedence over config. Revisit once Must Have phases are stable. Note: this skill is a developer tool (run locally, commit the result) — not a CI/CD pipeline step. AI is non-deterministic, slow, and costly to run on every build. Config support is for local developer convenience only.
+- Plugin/framework ignore list: accept a list of class prefixes (e.g. `woocommerce-`, `yith-`, `tinv-`, `wapf-`, `bapf_`, `dgwt-`, `irs--`) that the skill should never rename, flag for de-nesting, or attempt to restructure. Phase 1 should skip or annotate selectors matching these prefixes rather than suggesting class renames. Can be passed as a CLI argument or defined in config. Default set of known WordPress/WooCommerce prefixes can be built in.
 - Selector obfuscation: a post-processing step (separate skill) that replaces human-readable class names with short opaque codes (e.g. `.pricing-card__feature--disabled` → `.a1b`) across CSS and HTML simultaneously, generating a sourcemap so the transform is reversible. This is a performance optimization — shorter selectors reduce file size and parsing time. Preconditions: styling must be stable, the project must own both CSS and HTML. Assumed convention: classes prefixed with `js-` are never styled and must be left untouched (they are the safe hook for JavaScript). IDs are already excluded from styling (specificity rule), so they are out of scope too.
