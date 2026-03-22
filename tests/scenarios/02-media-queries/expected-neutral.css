@@ -1,0 +1,46 @@
+/* Scenario 02 — expected neutral output
+   - Block styles in order, no scattered MQs
+   - Duplicate 768px breakpoints merged into one
+   - MQs ordered ascending (mobile-first)
+   - @keyframes moved below MQs
+*/
+
+.hero {
+  padding: var(--spacing-md);
+  font-size: var(--font-size-base);
+}
+
+.hero__title {
+  font-size: var(--font-size-lg);
+  animation: fadeIn 0.3s ease;
+}
+
+.hero__subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+@media (min-width: 768px) {
+  .hero {
+    padding: var(--spacing-lg);
+  }
+
+  .hero__title {
+    font-size: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    padding: var(--spacing-xl);
+  }
+
+  .hero__title {
+    font-size: 2.5rem;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

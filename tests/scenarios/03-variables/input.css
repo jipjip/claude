@@ -1,0 +1,25 @@
+/* Scenario 03 — Variable extraction from media queries
+   Tests: Phase 5 (replace hardcoded values, hoist component vars)
+   Issues: all raw values have matching tokens in base.css
+*/
+
+.button {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-md);
+}
+
+@media (min-width: 768px) {
+  .button {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .button {
+    padding: 1.5rem 2rem;
+    font-size: 1.125rem;
+  }
+}
