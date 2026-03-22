@@ -2,17 +2,10 @@
 
 ## Must Have
 
-- Phase 0 pre-flight detection (implemented in SKILL.md, needs testing across real files):
-  - Bail-out detection: `@tailwind`, `@apply`, utility-first class density (Tailwind, UnoCSS, WindiCSS)
-  - Dialect detection: plain CSS (supported), SCSS (supported with scope limits), SASS indented (stop), LESS (stop)
-  - SCSS scope: mark `@mixin`, `@function`, `@include`, `@extend`, `%placeholder`, `$variable`, `#{interpolation}`, `!default` as out-of-scope before any phase runs
-  - Convention agnostic: the skill works regardless of naming convention (BEM, SMACSS, CUBE CSS, utility-hybrid, or none)
-
-- Integrate TODO checks into the appropriate phases:
+- Integrate remaining TODO checks into the appropriate phases (each needs a spec addition in SKILL.md + test scenario):
   - `!important` → Phase 1 (de-nesting often resolves the specificity conflict causing it)
   - Specificity & cross-block coupling → Phase 1 / Phase 2
-  - Token consolidation → Phase 5 (variable extraction)
-  - Dead CSS → Phase 1 (after de-nesting, orphaned selectors become visible)
+  - Dead CSS → Phase 1 (after de-nesting, orphaned selectors become visible; aggressive mode only — requires HTML)
   - Wildcard / structural selectors → Phase 1
 
 ## Should Have
@@ -25,7 +18,7 @@
 
 - Selector compaction using `:is()` and `:where()`: after MQ consolidation, identify groups of selectors in the same block that share identical declarations and can be merged. Use `:is()` when the highest specificity in the group should be preserved (e.g. `.component` and `.component .title` both setting `font-family` → `:is(.component, .component .title)`). Use `:where()` when zero specificity is explicitly desired. Flag cases where the specificity change would alter the cascade.
 
-## Should Have (config)
+## Should Have (config) ← next sprint candidate
 
 - Settings file (`optimize-css.config.json`) in the project root. Needed for correctness, not just convenience — some skill decisions are ambiguous without user intent. CLI arguments take precedence. Key settings identified so far:
   - `duplicate_vars: yes | no | ask` — controls Phase 6 Class 3 behavior: when two tokens share the same value, should the skill consolidate them automatically (`yes`), flag only (`no`), or pause and ask per pair (`ask`)? Default: `no` (flag only). **Why this matters:** company guidelines or design systems may require specific naming even when values coincide — e.g. `--color-interactive` and `--color-brand` might both be `#aa0005` today but diverge on a rebrand. Auto-merging would silently couple them.
@@ -33,6 +26,7 @@
   - `mobile_first: true | false` — declare the file's intended viewport strategy; prevents incorrect desktop-first flagging
   - `ignore_prefixes: []` — class prefixes the skill should never touch (e.g. `woocommerce-`, `yith-`)
   - `phases: []` — opt individual phases on/off
+  - Start small: first version only needs `duplicate_vars` and `mode` to be immediately useful
 
 ## Could Have
 
