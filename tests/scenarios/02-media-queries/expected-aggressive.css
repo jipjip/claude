@@ -1,12 +1,13 @@
 /* Scenario 02 — expected aggressive output
-   Same as neutral for this scenario — MQ consolidation and keyframe
-   placement are CSS-only operations. No HTML changes needed.
-   Note: 2rem and 2.5rem have no matching token in base.css,
-   so they remain as-is even in aggressive mode.
+   Phase 3+4: MQ consolidation, keyframe moved to bottom.
+   Phase 5 (private layout var pattern):
+   - .hero padding overridden in 2 MQs + base uses global token → applies
+   - var name: hero (hr) + padding (p) → --_hrp
+   - .hero__title font-size: structural, raw values shorter than any var → gate fails, left as raw
 */
 
 .hero {
-  padding: var(--spacing-md);
+  padding: var(--_hrp, var(--spacing-md));
   font-size: var(--font-size-base);
 }
 
@@ -22,7 +23,7 @@
 
 @media (min-width: 768px) {
   .hero {
-    padding: var(--spacing-lg);
+    --_hrp: var(--spacing-lg);
   }
 
   .hero__title {
@@ -32,7 +33,7 @@
 
 @media (min-width: 1024px) {
   .hero {
-    padding: var(--spacing-xl);
+    --_hrp: var(--spacing-xl);
   }
 
   .hero__title {

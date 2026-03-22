@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.3"
+  version: "0.4"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -64,16 +64,40 @@ For each property override inside a media query selector, apply a cost/benefit g
 2. **Brand/identity property** — the property is `color`, `background-color`, `font-family`, `border-color`, or similar presentational/brand properties where a single source of truth matters more than byte count.
 3. **Byte neutral or smaller** — the var name + `var()` wrapper is equal to or shorter than the raw value. Rule of thumb: a var name of 5+ characters + the 5-character `var()` overhead = 10 characters minimum. A raw value shorter than that is not a candidate.
 
-**Structural and layout properties** (`padding`, `margin`, `border-radius`, `z-index`, `line-height`, `gap`, `width`, `height`, etc.) should be left as raw values unless condition 1 (selector elimination) applies.
+**Structural and layout properties** (`padding`, `margin`, `border-radius`, `z-index`, `line-height`, `gap`, `width`, `height`, etc.) should be left as raw values unless condition 1 (selector elimination) applies — OR the private layout var pattern applies (see below).
 
-**Process:**
+**Process — brand/identity properties (conditions 1–3):**
 - Use the fallback pattern to initialize the variable at the point of use: `color: var(--card-color, #7c6ef5)`. This keeps the base value where it belongs and avoids an unnecessary var declaration on the parent for the default case.
 - Set the var on the parent component only when a breakpoint override is needed: `@media (...) { .parent { --card-color: #9585f8; } }`.
 - Use the component hierarchy from Phase 2 to determine the right parent level to hoist the override to.
 - If all property overrides in a MQ selector are replaced this way, the selector is now empty — remove it.
 
-**Neutral**: only substitute using variables that already exist in the file. Do not create new tokens.
-**Aggressive**: create new tokens where needed. Remove selectors that become empty after extraction.
+**Process — private layout var pattern (aggressive only):**
+
+Apply this pattern to structural/layout properties that are overridden in at least one MQ and whose base value uses a global token.
+
+Introduce a private custom property using the `--_` prefix. Derive the name from:
+- **Selector abbreviation** (max 3 chars):
+  - Single word → remove vowels, max 3: `.card` → `crd`, `.header` → `hdr`, `.container` → `ctr`
+  - Hyphenated → first letter of each part, max 3: `.image-slider` → `isl`, `.pricing-card` → `pc`
+  - BEM element (`__`) → abbreviate block + element: `.footer__nav` → `fn`
+- **Property abbreviation** (max 3 chars):
+  - Short single word → 1 char: `padding` → `p`, `width` → `w`, `margin` → `m`, `gap` → `g`
+  - Multi-word → first letter of each word: `background-color` → `bgc`, `grid-template-columns` → `gtc`, `max-height` → `mh`, `border-radius` → `br`, `padding-inline` → `pi`
+- **Collision handling**: if two different selector+property combinations produce the same abbreviation, add one extra character to distinguish. Flag the collision in the report and suggest the resolution — do not silently pick one.
+
+**Transformation:**
+- Base property: `padding: var(--spacing-md)` → `padding: var(--_hrp, var(--spacing-md))`
+- MQ override (same selector, not hoisted to parent): `padding: var(--spacing-lg)` → `--_hrp: var(--spacing-lg)`
+- Result: the actual property appears once; all MQ selectors only contain var overrides.
+
+**Global var detection:**
+- If a var is used but not defined in the current file, it is likely defined in a global stylesheet.
+- Trace the `<link>` tags in the HTML file to identify candidate global files.
+- It is safe to reference undeclared vars in fallbacks — they resolve at runtime from the global scope.
+
+**Neutral**: only substitute using variables that already exist in the file. Do not create new tokens. Private layout vars are aggressive-only.
+**Aggressive**: create new tokens where needed. Apply private layout var pattern. Remove selectors that become empty after extraction.
 **Defensive**: flag opportunities that pass the cost/benefit gate, suggest token names and initialization values, no edits.
 
 ## TODO
