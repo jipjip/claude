@@ -6,7 +6,6 @@ license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
   version: "0.3"
-disable-model-invocation: true
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -58,15 +57,24 @@ Applies in **neutral** and **aggressive** mode. In defensive mode, flag and repo
 
 ### Phase 5 — Variable extraction from media queries
 
-For each property override inside a media query selector:
-- Check if the value can be expressed as a CSS custom property.
-- If yes, initialize the variable on the component root with the base (mobile-first) value, and override only the variable inside the media query.
-- Use the component hierarchy from Phase 2 to determine the right level to initialize the variable — hoist to the parent component root if the child lives inside one.
-- If all property overrides in a media query selector are replaced this way, the selector may become obsolete — remove it if so.
+For each property override inside a media query selector, apply a cost/benefit gate before substituting:
 
-**Neutral**: only replace with variables that already exist in the file. Do not create new tokens.
+**Only replace a value with a custom property if at least one of these conditions is true:**
+1. **Selector elimination** — substituting this value (and others in the same selector) allows the entire MQ selector to become var-only overrides, making it a candidate for removal.
+2. **Brand/identity property** — the property is `color`, `background-color`, `font-family`, `border-color`, or similar presentational/brand properties where a single source of truth matters more than byte count.
+3. **Byte neutral or smaller** — the var name + `var()` wrapper is equal to or shorter than the raw value. Rule of thumb: a var name of 5+ characters + the 5-character `var()` overhead = 10 characters minimum. A raw value shorter than that is not a candidate.
+
+**Structural and layout properties** (`padding`, `margin`, `border-radius`, `z-index`, `line-height`, `gap`, `width`, `height`, etc.) should be left as raw values unless condition 1 (selector elimination) applies.
+
+**Process:**
+- Use the fallback pattern to initialize the variable at the point of use: `color: var(--card-color, #7c6ef5)`. This keeps the base value where it belongs and avoids an unnecessary var declaration on the parent for the default case.
+- Set the var on the parent component only when a breakpoint override is needed: `@media (...) { .parent { --card-color: #9585f8; } }`.
+- Use the component hierarchy from Phase 2 to determine the right parent level to hoist the override to.
+- If all property overrides in a MQ selector are replaced this way, the selector is now empty — remove it.
+
+**Neutral**: only substitute using variables that already exist in the file. Do not create new tokens.
 **Aggressive**: create new tokens where needed. Remove selectors that become empty after extraction.
-**Defensive**: flag opportunities, suggest token names and initialization values, no edits.
+**Defensive**: flag opportunities that pass the cost/benefit gate, suggest token names and initialization values, no edits.
 
 ## TODO
 

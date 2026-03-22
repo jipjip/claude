@@ -1,25 +1,31 @@
 /* Scenario 03 — expected neutral output
-   Hardcoded values replaced with existing tokens from base.css.
-   No new tokens created (neutral scope).
+   No changes. Hardcoded #7c6ef5 and #9585f8 are flagged:
+   - Both are brand/color properties that could use the fallback var pattern
+   - But introducing a new var + hoisting to parent is aggressive scope
+   Padding override is structural — gate fails.
 */
 
-.button {
-  padding: var(--spacing-sm) var(--spacing-md);
+.card {
+  background-color: var(--color-surface);
+  padding: var(--spacing-md);
+}
+
+.card__title {
+  color: #7c6ef5;
+  font-size: var(--font-size-lg);
+}
+
+.card__body {
   font-size: var(--font-size-sm);
-  background-color: var(--color-accent);
-  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 768px) {
-  .button {
-    padding: var(--spacing-md) var(--spacing-lg);
-    font-size: var(--font-size-base);
+  .card {
+    padding: var(--spacing-lg);
   }
-}
 
-@media (min-width: 1024px) {
-  .button {
-    padding: var(--spacing-lg) var(--spacing-xl);
-    font-size: var(--font-size-lg);
+  .card__title {
+    color: #9585f8;
   }
 }

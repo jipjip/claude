@@ -1,25 +1,34 @@
 /* Scenario 03 — Variable extraction from media queries
-   Tests: Phase 5 (replace hardcoded values, hoist component vars)
-   Issues: all raw values have matching tokens in base.css
+   Tests: Phase 5 — selector elimination via parent var hoisting (fallback pattern)
+
+   .card__title has a hardcoded base color and a MQ override.
+   Aggressive: introduce var with fallback on .card__title, hoist override to .card MQ.
+   This eliminates the .card__title MQ selector entirely.
+   Neutral: flags the hardcoded color, no edits.
+   Padding in .card's MQ is structural — gate fails, left as raw.
 */
 
-.button {
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  background-color: var(--color-accent);
-  border-radius: var(--radius-md);
+.card {
+  background-color: var(--color-surface);
+  padding: var(--spacing-md);
+}
+
+.card__title {
+  color: #7c6ef5;
+  font-size: var(--font-size-lg);
+}
+
+.card__body {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 768px) {
-  .button {
-    padding: 1rem 1.5rem;
-    font-size: 1rem;
+  .card {
+    padding: var(--spacing-lg);
   }
-}
 
-@media (min-width: 1024px) {
-  .button {
-    padding: 1.5rem 2rem;
-    font-size: 1.125rem;
+  .card__title {
+    color: #9585f8;
   }
 }

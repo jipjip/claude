@@ -1,28 +1,28 @@
 /* Scenario 03 — expected aggressive output
-   Component-level vars initialized on .button root with base (mobile) values.
-   MQ selectors now only override vars — no direct property overrides remain.
+   Fallback pattern applied: base color moved into var(--card-color, #7c6ef5) on .card__title.
+   MQ override hoisted to parent .card as --card-color: #9585f8.
+   .card__title MQ selector eliminated — parent var cascades to child.
+   .card padding left as raw (structural, gate fails).
 */
 
-.button {
-  --button-padding: var(--spacing-sm) var(--spacing-md);
-  --button-font-size: var(--font-size-sm);
+.card {
+  background-color: var(--color-surface);
+  padding: var(--spacing-md);
+}
 
-  padding: var(--button-padding);
-  font-size: var(--button-font-size);
-  background-color: var(--color-accent);
-  border-radius: var(--radius-md);
+.card__title {
+  color: var(--card-color, #7c6ef5);
+  font-size: var(--font-size-lg);
+}
+
+.card__body {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
 @media (min-width: 768px) {
-  .button {
-    --button-padding: var(--spacing-md) var(--spacing-lg);
-    --button-font-size: var(--font-size-base);
-  }
-}
-
-@media (min-width: 1024px) {
-  .button {
-    --button-padding: var(--spacing-lg) var(--spacing-xl);
-    --button-font-size: var(--font-size-lg);
+  .card {
+    padding: var(--spacing-lg);
+    --card-color: #9585f8;
   }
 }

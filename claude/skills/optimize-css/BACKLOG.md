@@ -13,6 +13,7 @@
 
 - Group CSS vars that seem general (colors, typography, spacing used across multiple unrelated components) and suggest moving them to a global or base stylesheet via a comment.
 - Hoist CSS vars to the appropriate parent level based on the component hierarchy map (Phase 2 → Phase 5).
+- Private layout var pattern: for structural/layout properties (`padding`, `margin`, `gap`, etc.) on components designed to be orchestrated from outside, introduce a private var using the `--_` prefix convention. Name using 2–3 chars from the component name + 1–2 chars for the property (e.g. `.card` + `padding` → `--_crdp`). Use a nested fallback to preserve the global token connection: `padding: var(--_crdp, var(--spacing-md))`. MQ overrides then only set the private var: `--_crdp: var(--spacing-lg)`. Benefits: the actual property appears once, MQ lines are shorter, and the `--_` prefix signals the var is internal to the component (not part of its public API). Needs heuristic to detect layout-orchestrated components — likely requires Phase 2 hierarchy context.
 
 ## Could Have
 
