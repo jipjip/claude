@@ -8,6 +8,42 @@
   - Dead CSS → Phase 1 (after de-nesting, orphaned selectors become visible; aggressive mode only — requires HTML)
   - Wildcard / structural selectors → Phase 1
 
+## Must Have — HTML scaffold + regression testing
+
+**Problem:** Dead CSS detection and regression testing both require an HTML file, but in most real-world runs there is no HTML file available (CSS-only upload, WordPress theme, build output).
+
+**Idea:** Reconstruct a minimal HTML scaffold from the CSS selectors themselves, then use it for:
+
+1. **Dead CSS detection** — a selector that matches no element in the scaffold is a dead candidate. Not a perfect proxy for production HTML, but catches obvious orphans (components removed, renamed selectors, leftover page-builder cruft).
+
+2. **Regression snapshot testing** — before optimization, capture the set of rules that apply to each element in the scaffold and the computed property values. After optimization, re-run the same capture and diff. Any property that changed value at any selector is a regression.
+
+**How to reconstruct HTML from CSS:**
+
+- Parse every selector in the file. For each compound selector, create the minimal DOM path it describes:
+  - Class selectors → `<div class="name">`
+  - Tag selectors → the named tag
+  - Descendant combinators → nest the elements
+  - `:nth-child(N)` → generate N siblings, target the Nth
+  - Pseudo-classes like `:hover`, `:focus` → skip or stub
+
+- Deduplicate and flatten into a single HTML document where every selector matches at least one element.
+- This is a **structural scaffold only** — no content, no images. It exists purely to give a CSS engine something to compute against.
+
+**Regression test approach:**
+
+- Run a headless browser (e.g. Playwright) or a CSS parser with cascade resolution against the scaffold before and after.
+- Diff the computed `width`, `height`, `min-height`, `flex-direction`, `right`, `color`, etc. at each matched selector.
+- Report any value that changed. Flag as warning (expected structural simplification) vs. error (unexpected value change).
+
+**Limitations to document:**
+
+- Dynamic selectors (`:hover`, `.is-active`, JS-toggled classes) cannot be scaffolded — skip and note.
+- `calc()` expressions with viewport units (`vw`, `vh`) resolve differently in headless vs. real browser — note discrepancy.
+- This approach detects regressions in the CSS cascade logic, not in visual appearance. Pixel-perfect validation still requires a real browser and reference screenshots.
+
+**Priority:** High — this directly addresses the risk introduced by Phase 5 private var transformations, where a subtle inheritance or fallback mistake can silently shift a computed value (e.g. a `min-height` that should be `450px` resolving to the CSS default `0` if the var name has a typo or the fallback is missing).
+
 ## Should Have
 
 - Group CSS vars that seem general (colors, typography, spacing used across multiple unrelated components) and suggest moving them to a global or base stylesheet via a comment.
