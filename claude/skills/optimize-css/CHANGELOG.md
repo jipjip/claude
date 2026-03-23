@@ -16,6 +16,13 @@ From v1.0.0 onward: **semantic versioning** — `v[MAJOR].[MINOR].[PATCH]`
 
 ## Pre-release history
 
+### 0.94 — 2026-03-23
+
+- Added `browser_targets` setting: `modern | broad | legacy` (default: `broad`) — gates which modern CSS features the skill may suggest or apply
+- Feature gate table added: `@scope`, `@layer`, `color-mix()`, `oklch`, nesting, container queries — each mapped to `legacy/broad/modern` tier and minimum browser versions
+- Phase 5 private layout var threshold corrected: was "base value must use a global token" → now "property overridden in 3+ MQ blocks" regardless of whether base value is a raw value or token
+- `@scope` + private var synthesis pattern added to Phase 5: documents how `@scope` (base rules) and private vars (MQ overrides) combine cleanly — `@scope` is transparent to custom property inheritance
+
 ### 0.93 — 2026-03-23
 
 - New config format: every setting is an object with `info`, `default`, and optional `options` keys — `info` surfaces in the report header and replaces JSON's missing comment syntax

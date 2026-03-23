@@ -37,6 +37,60 @@
 - Rewrite to Mobile First: detect desktop-first patterns (max-width queries, base styles assuming large screen) and convert the file to a mobile-first structure — base styles become the smallest viewport, queries become min-width ascending.
 - SCSS deeper support: beyond scope identification (Phase 0), handle SCSS-specific optimization opportunities — e.g. detecting redundant `@include` calls, flagging `$variable` values that duplicate CSS custom properties, and identifying `@extend` chains that could be flattened.
 
+## Research: token cost vs. file size (monetization data)
+
+**Goal:** establish a cost-per-run model as a pricing foundation for a potential web service.
+
+### What drives token cost
+
+Every run has three cost components:
+
+| Component | Scales with | Notes |
+| --- | --- | --- |
+| SKILL.md (system prompt) | Fixed | ~500 lines / ~6 500 tokens per run — always paid |
+| CSS input file | File size | ~1 token per 4 chars; a 90 KB file ≈ 22 500 tokens |
+| Output (edits + report) | Mode + change density | Aggressive = more rewrites = more output tokens; defensive is cheapest |
+
+Input tokens dominate. A large CSS file will cost roughly 3–4× more to process than a small one regardless of mode.
+
+### Wildtest.css baseline (2026-03-23 session)
+
+| Metric | Value |
+| --- | --- |
+| Input file | ~2 660 lines / ~90 KB (GeneratePress child theme) |
+| Mode | Aggressive |
+| Sessions consumed | 3 (context window compactions occurred twice) |
+| Approximate input tokens per interaction | ~30 000 (SKILL.md + file + conversation history) |
+| File size reduction | Significant (Phase 3 consolidation + Phase 5 private vars removed ~200+ repeated MQ declarations) |
+
+Exact token counts are not visible inside the tool, but Claude API users can retrieve them from the usage field on each response. **Action: instrument a test harness that logs `usage.input_tokens` and `usage.output_tokens` per API call and accumulates per file run.**
+
+### Data to collect per run (test matrix)
+
+- CSS file size (bytes), line count, selector count
+- Mode (defensive / neutral / aggressive)
+- Input tokens, output tokens, total cost at current API rate
+- Number of edits made, bytes saved, phases triggered
+- SKILL.md version (prompt changes affect cost)
+
+Run at minimum: 10 KB / 30 KB / 60 KB / 100 KB files × 3 modes = 12 data points. Look for a cost curve.
+
+### Pricing model hypotheses
+
+1. **Per-file flat tiers** — S / M / L / XL buckets by file size. Simple to communicate, easy to charge. Risk: XL files can vary wildly in complexity.
+2. **Per-KB** — linear, transparent. Predictable for the customer. Likely undercharges for aggressive mode on complex files.
+3. **Per-KB × mode multiplier** — e.g. 1× defensive, 1.5× neutral, 2.5× aggressive. Closer to actual cost. May confuse users.
+4. **Token-pass-through + margin** — charge actual API cost + X%. Developer-friendly, honest. Requires per-user API cost tracking.
+5. **Credits** — pre-buy credits, 1 credit ≈ 10 KB in neutral mode. Familiar SaaS pattern; hides the per-token math.
+
+**Hypothesis to test first:** flat tiers cover 80% of real-world files (most stylesheets are under 100 KB). A three-tier model (< 30 KB / 30–100 KB / > 100 KB) × mode may be sufficient for v1 pricing.
+
+### Open questions
+
+- Does SCSS with many `@mixin` / `@include` blocks cost more (more tokens skipped, same input cost)?
+- What is the realistic p95 file size for a production stylesheet? (Anecdote: wildtest is ~90 KB unminified, which is large but not unusual for a page-builder-adjacent theme.)
+- Minified vs. unminified input: minified files are smaller but harder to read — does output quality drop enough to require unminified input?
+
 ## Would Have
 
 - Multi-file mode: accept a folder or list of files and cross-reference selectors across them before flagging dead CSS or suggesting token moves.

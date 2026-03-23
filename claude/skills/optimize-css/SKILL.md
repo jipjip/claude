@@ -53,6 +53,7 @@ Look for `optimize-css.config.json`, searching from the target file's directory 
 | `mode` | `defensive` \| `neutral` \| `aggressive` | `neutral` | Default mode when no CLI flag is passed. CLI flag takes precedence. |
 | `duplicate_vars` | `yes` \| `no` \| `ask` | `no` | Controls Phase 6 Class 3 behavior — see Phase 6 for details. |
 | `confirm_generated` | `yes` \| `no` \| `ask` | `ask` | What to do when a generated or theme-managed file is detected. `yes` = proceed, `no` = bail out, `ask` = prompt the user. Use `options` for per-signal overrides. |
+| `browser_targets` | `modern` \| `broad` \| `legacy` | `broad` | Gates suggestions and edits that require specific browser support. See feature gate table below. |
 
 **`confirm_generated` in detail:**
 
@@ -91,6 +92,22 @@ Use `options` to set per-signal behavior that differs from `default`:
 ```
 
 Valid signal keys for `options`: `wordpress`, `elementor`, `divi`, `beaver`, `wpbakery`, `oxygen`, `bricks`.
+
+**`browser_targets` in detail:**
+
+Controls which modern CSS features the skill may suggest or apply. Default is `broad` — covers the large majority of live traffic without requiring cutting-edge support.
+
+| Feature | `legacy` | `broad` | `modern` | Minimum browsers |
+| --- | --- | --- | --- | --- |
+| CSS custom properties | suggest only | ✓ apply | ✓ apply | Chrome 49+, FF 31+, Safari 9.1+ |
+| `@scope` | ✗ skip | suggest only | ✓ apply | Chrome 118+, FF 128+, Safari 17.4+ |
+| `@layer` | ✗ skip | ✗ skip | suggest only | Chrome 99+, FF 97+, Safari 15.4+ — multi-file risk, see backlog |
+| `color-mix()` | ✗ skip | suggest only | ✓ apply | Chrome 111+, FF 113+, Safari 16.2+ |
+| `oklch()` / `oklch` colors | ✗ skip | suggest only | ✓ apply | Chrome 111+, FF 113+, Safari 15.4+ |
+| Nesting (`&`) | ✗ skip | suggest only | ✓ apply | Chrome 112+, FF 117+, Safari 16.5+ |
+| `container` queries | ✗ skip | suggest only | ✓ apply | Chrome 105+, FF 110+, Safari 16+ |
+
+When a feature is gated as "suggest only", include an `[optimize-css:warn]` comment on the suggestion line naming the `browser_targets` setting and the minimum browser requirement. Do not apply the edit.
 
 **Precedence:** CLI flag > config file > built-in default.
 
@@ -318,6 +335,7 @@ For each property override inside a media query selector, apply a cost/benefit g
 1. **Selector elimination** — substituting this value (and others in the same selector) allows the entire MQ selector to become var-only overrides, making it a candidate for removal.
 2. **Brand/identity property** — the property is `color`, `background-color`, `font-family`, `border-color`, or similar presentational/brand properties where a single source of truth matters more than byte count.
 3. **Byte neutral or smaller** — the var name + `var()` wrapper is equal to or shorter than the raw value. Rule of thumb: a var name of 5+ characters + the 5-character `var()` overhead = 10 characters minimum. A raw value shorter than that is not a candidate.
+4. **Specificity bundle** — two or more selectors in the same MQ block share a component root, and converting ALL their properties to private vars allows the entire group to be replaced by a single component-root override. Individual properties may fail conditions 1–3; the joint specificity reduction across ≥ 2 selectors is the gate. Example: `.section .wrapper { flex-direction: column }` (0,2,0) + `.section .wrapper>div { width: 100% }` (0,2,1) → `.section { --_sfd: column; --_sdw: 100% }` (0,1,0). The values `column` and `100%` are both too short to qualify individually — the bundle qualifies them together.
 
 **Structural and layout properties** (`padding`, `margin`, `border-radius`, `z-index`, `line-height`, `gap`, `width`, `height`, etc.) should be left as raw values unless condition 1 (selector elimination) applies — OR the private layout var pattern applies (see below).
 
@@ -327,9 +345,17 @@ For each property override inside a media query selector, apply a cost/benefit g
 - Use the component hierarchy from Phase 2 to determine the right parent level to hoist the override to.
 - If all property overrides in a MQ selector are replaced this way, the selector is now empty — remove it.
 
+**Detection — specificity bundle (condition 4, aggressive only):**
+
+Before scanning individual selectors, group all MQ selectors by component root (the outermost component class in each selector, e.g. `.about-section4`). For each group:
+1. Can every selector in the group be reduced to a private var override on the component root?
+2. Would that eliminate ≥ 2 selectors from the MQ block?
+
+If yes to both: apply the bundle. For each property in the group, add `property: var(--_varname, fallback)` to the corresponding base rule. Collect all var overrides under a single component-root block in the MQ. Report the specificity reduction per selector eliminated.
+
 **Process — private layout var pattern (aggressive only):**
 
-Apply this pattern to structural/layout properties that are overridden in at least one MQ and whose base value uses a global token.
+Apply this pattern to structural/layout properties that are overridden in **3 or more MQ blocks**. The base value may be a raw value or a global token — the threshold is repetition, not token origin.
 
 Introduce a private custom property using the `--_` prefix. Derive the name from:
 - **Selector abbreviation** (max 3 chars):
@@ -343,8 +369,10 @@ Introduce a private custom property using the `--_` prefix. Derive the name from
 
 **Transformation:**
 - Base property: `padding: var(--spacing-md)` → `padding: var(--_hrp, var(--spacing-md))`
-- MQ override (same selector, not hoisted to parent): `padding: var(--spacing-lg)` → `--_hrp: var(--spacing-lg)`
-- Result: the actual property appears once; all MQ selectors only contain var overrides.
+- MQ override: set the var on the **component root** (top-level component class), not on the target element. CSS custom properties inherit through the DOM — the full path is never needed in the MQ.
+  - `@media (…) { .hero { --_hrp: var(--spacing-lg); } }` ← correct
+  - `@media (…) { .hero .inner-container .card { --_hrp: var(--spacing-lg); } }` ← redundant, do not write this
+- Result: the actual property appears once in the base; MQ blocks contain only short component-root overrides.
 
 **Global var detection:**
 - If a var is used but not defined in the current file, it is likely defined in a global stylesheet.
@@ -354,6 +382,15 @@ Introduce a private custom property using the `--_` prefix. Derive the name from
 **Neutral**: only substitute using variables that already exist in the file. Do not create new tokens. Private layout vars are aggressive-only.
 **Aggressive**: create new tokens where needed. Apply private layout var pattern. Remove selectors that become empty after extraction.
 **Defensive**: flag opportunities that pass the cost/benefit gate, suggest token names and initialization values, no edits.
+
+**`@scope` + private var synthesis (aggressive only):**
+
+When Phase 5 is applied to a component that is also wrapped in `@scope` (Phase 1), a tension arises: `@scope` owns the base rules (component axis), while Phase 3 MQ blocks own the breakpoint axis. The private layout var pattern resolves this cleanly:
+
+1. Inside `@scope (.component)`, base property uses the private var with fallback: `min-height: var(--_cmprop, 450px)`.
+2. In the Phase 3 MQ block, the override targets the component selector directly (not scoped): `.component { --_cmprop: 300px; }`.
+3. `@scope` is transparent to custom property inheritance — the var set outside the scope resolves inside it normally.
+4. Result: base rule lives inside `@scope`; all MQ selectors are one-liner var overrides; no selector duplication.
 
 **Second-pass: multi-selector ladder detection**
 
