@@ -1,0 +1,6 @@
+{
+  "confirm_generated": {
+    "info": "Always bail on generated or theme-managed files — do not proceed without explicit CLI override.",
+    "default": "no"
+  }
+}

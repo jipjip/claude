@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.8"
+  version: "0.93"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -28,16 +28,83 @@ In aggressive mode, also search for a corresponding HTML file alongside the CSS 
 
 Look for `optimize-css.config.json`, searching from the target file's directory upward to the project root (first file found wins). If no config is found, all settings use their defaults.
 
-Supported settings (v1):
+**Config format:** every setting is an object with three keys:
+
+```json
+{
+  "setting-name": {
+    "info": "Human-readable note — shown in the report header and serves as documentation inside the file (JSON has no comment syntax).",
+    "default": "the-value",
+    "options": {
+      "per-signal-key": "override-value"
+    }
+  }
+}
+```
+
+- `info` — optional but encouraged. Surfaced in the report so the developer's intent travels with the run.
+- `default` — the active value for this setting.
+- `options` — optional. Per-signal overrides (see `confirm_generated` below).
+
+**Supported settings:**
 
 | Setting | Values | Default | Effect |
 | --- | --- | --- | --- |
 | `mode` | `defensive` \| `neutral` \| `aggressive` | `neutral` | Default mode when no CLI flag is passed. CLI flag takes precedence. |
 | `duplicate_vars` | `yes` \| `no` \| `ask` | `no` | Controls Phase 6 Class 3 behavior — see Phase 6 for details. |
+| `confirm_generated` | `yes` \| `no` \| `ask` | `ask` | What to do when a generated or theme-managed file is detected. `yes` = proceed, `no` = bail out, `ask` = prompt the user. Use `options` for per-signal overrides. |
 
-**Precedence:** CLI flag > config file > default.
+**`confirm_generated` in detail:**
 
-If a config file is found, note it in the report header so the developer knows which settings are active.
+When a generated file signal is detected (WordPress theme header, page builder output), behavior depends on this setting:
+
+- **`yes`** — proceed without prompting.
+- **`no`** — bail out immediately. No edits, no warning comment added.
+- **`ask`** (default) — pause and prompt:
+
+```
+[optimize-css] WordPress child theme detected (Template: generatepress).
+Manual edits may be overwritten on theme update.
+Proceed? [y / n / -d / -n / -a]
+  y    proceed in current mode
+  n    quit — no changes made
+  -d   proceed in defensive mode (report only, safest)
+  -n   proceed in neutral mode
+  -a   proceed in aggressive mode
+
+Tip: set "confirm_generated": { "default": "yes" } in optimize-css.config.json to skip this prompt.
+```
+
+Use `options` to set per-signal behavior that differs from `default`:
+
+```json
+{
+  "confirm_generated": {
+    "info": "Editing generated CSS risks losing compatibility. 'no' is the safest option.",
+    "default": "ask",
+    "options": {
+      "wordpress": "no",
+      "elementor": "no"
+    }
+  }
+}
+```
+
+Valid signal keys for `options`: `wordpress`, `elementor`, `divi`, `beaver`, `wpbakery`, `oxygen`, `bricks`.
+
+**Precedence:** CLI flag > config file > built-in default.
+
+If a config file is found, include its path, active settings, and any `info` values in the report header:
+
+```
+Config: optimize-css.config.json
+  duplicate_vars: yes
+  confirm_generated: ask (wordpress: no)
+
+  duplicate_vars — Will merge duplicate CSS custom properties that share the same value.
+                   Risk: losing cross-file connections if the var is also declared globally.
+  confirm_generated — Editing generated CSS risks losing compatibility. 'no' is the safest option.
+```
 
 ## Step 2 — Pre-flight detection (Phase 0)
 
@@ -65,7 +132,22 @@ If any of the following are detected, stop and report — the file is generated 
 - **Bricks Builder**: `.brxe-` prefix
 - **General signal**: a class-per-layout-state density where class names encode responsive behaviour (e.g. `elementor-tablet-align-left`, `elementor-mobile_extra-align-justify`) — these are generated utility matrices, not authored styles
 
-Report which builder was detected and explain that the source is the builder's settings (database, visual editor), not this file. Note the correct optimization lever (e.g. disable unused breakpoints in Elementor settings, remove unused widget types).
+Apply `confirm_generated` behavior (see Step 1b). If the setting resolves to `no` or the user declines the prompt, stop here — report which builder was detected and explain that the source is the builder's settings (database, visual editor), not this file. Note the correct optimization lever (e.g. disable unused breakpoints in Elementor settings, remove unused widget types).
+
+### Warn: WordPress / CMS theme file
+
+If the file contains a theme file header comment (WordPress stylesheet convention), apply `confirm_generated` behavior — a hand-authored child theme is a legitimate optimization target but may be overwritten on theme update. Only hard-bail if the file is also a page builder output (both signals together = generated source).
+
+Signals:
+- `Theme Name:` in a block comment near the top of the file (WordPress `style.css` convention)
+- `Template:` pointing to a parent theme (child theme indicator)
+- WooCommerce or plugin stylesheet headers: `Plugin Name:`, `WC requires at least:`
+
+**Action:** Apply `confirm_generated` (see Step 1b). If proceeding, add a single-line comment at the very top of the CSS file:
+
+```css
+/* [optimize-css:warn] WordPress theme stylesheet detected (Template: generatepress). Manual edits may be overwritten on theme update. Confirm edits are safe to commit before applying. */
+```
 
 ### Dialect detection
 
@@ -104,6 +186,45 @@ Identify all descendant selectors and tag selectors used inside a class (e.g. `.
 - **Aggressive**: replace with explicit element classes in both CSS and HTML.
 - **Neutral**: flag each one, suggest the explicit class name, but do not edit.
 - **Defensive**: flag each one with the suggested class name.
+
+#### Shared base extraction
+
+When 3 or more component-scoped selectors target the same sub-element and share identical declarations, those declarations belong on a shared base rule — not repeated per-component.
+
+**Detection**: scan for a sub-element class (e.g. `.gb-button`, `.wpcf7-submit`) that appears under multiple distinct parent component selectors (e.g. `.home-section1`, `.home-section2`, `.about-section5`). If 3+ instances share ≥ 3 identical property/value pairs, extract.
+
+**Process:**
+1. Create (or extend) a base rule targeting the sub-element directly: `.gb-button { … shared declarations … }`.
+2. In each per-component rule, remove only the declarations now covered by the base. Leave any component-specific overrides in place.
+3. Annotate both the new base rule and the stripped per-component rules.
+
+```css
+/* [optimize-css] extracted shared .gb-button base — background-color, border, border-radius, font-size, padding, transition were identical across 7 sections */
+.gb-button {
+    background-color: var(--main);
+    border: 2px solid transparent;
+    border-radius: 5px;
+    font-size: 14px;
+    padding: 13px 29px;
+    transition: all .2s ease-in-out;
+}
+
+/* [optimize-css] base props removed — now inherited from .gb-button */
+.home-section3 .inner-container .gb-button {
+    display: flex;          /* section-specific only */
+    margin-left: auto;
+}
+```
+
+**All modes**: apply in neutral and aggressive. In defensive, flag with the suggested base rule.
+
+**Applies inside MQ blocks too**: the same pattern occurs within a breakpoint — many selectors in the same `@media` block all setting the same property on the same sub-element. Extract to a single scoped rule inside that block. Cascade handles exceptions that already have higher specificity.
+
+**Tag selector exception**: when the repeated target is a semantic HTML element (`h2`, `p`, `li`, etc.) rather than a class, a scoped tag selector is acceptable as the extraction result — provided it is scoped to a stable container class (e.g. `.inner-container h2`). This is the one case where a tag selector descendant is produced intentionally rather than flagged. Annotate clearly so it is not later mistaken for a de-nesting candidate:
+```css
+/* [optimize-css] responsive typography reset — all .inner-container h2 → 25px; exceptions override via higher specificity */
+.inner-container h2 { font-size: 25px; }
+```
 
 #### Wildcard / structural selectors
 
@@ -145,7 +266,13 @@ For each `!important`, first check for dead rules it creates, then determine the
 - **Aggressive**: if de-nesting the conflicting rule unambiguously resolves it, apply the de-nest and remove the `!important`.
 - **Defensive**: flag with the conflicting selector identified and the suggested fix.
 
-**Case 3 — Ambiguous or likely external**: no conflicting rule in this file, but the selector pattern suggests an external conflict (plugin prefix, framework class, third-party namespace).
+**Case 3 — Ambiguous or likely external**: no conflicting rule in this file, but the selector pattern or context suggests an external conflict. External sources include:
+- Plugin or framework class prefixes (e.g. `wc-`, `elementor-`)
+- Theme builder–injected inline styles (e.g. GeneratePress page hero `max-width: calc(...)`, Astra container widths) — these appear in the page DOM, not the stylesheet, and cannot be seen in the CSS file
+- JavaScript-set styles
+
+When a base `!important` exists across many breakpoints for a structural property like `max-width`, and no conflicting rule appears in the file, inline styles are the most likely source. Note this in the warning.
+
 - **All modes**: log `[optimize-css:warn]`. State that the conflict is likely external and cannot be safely resolved. Do not edit.
 
 Example annotations:
@@ -174,6 +301,8 @@ No edits are made in this phase. Do not include the map in the report.
 - If max-width queries are detected, flag them as desktop-first and leave them in place — do not reorder or convert them.
 
 Applies in **neutral** and **aggressive** mode. In defensive mode, flag and report only.
+
+**Tooling note — large files**: for files with 50+ scattered `@media` blocks, making individual edits is impractical and error-prone. Use the brace-counting reference script at `tools/phase3-consolidate-mq.py` instead. Key design: single-line blocks (e.g. `:root` var overrides) are detected via `'\n' not in full_block` and left in place; multi-line blocks are extracted, grouped by breakpoint value, and appended at the bottom. Adapt the `@media` regex and the single-line heuristic to the target file's syntax before running.
 
 ### Phase 4 — Keyframe placement
 
@@ -225,6 +354,19 @@ Introduce a private custom property using the `--_` prefix. Derive the name from
 **Neutral**: only substitute using variables that already exist in the file. Do not create new tokens. Private layout vars are aggressive-only.
 **Aggressive**: create new tokens where needed. Apply private layout var pattern. Remove selectors that become empty after extraction.
 **Defensive**: flag opportunities that pass the cost/benefit gate, suggest token names and initialization values, no edits.
+
+**Second-pass: multi-selector ladder detection**
+
+After the initial extraction pass, scan for selectors not yet using a var whose MQ overrides track the same breakpoint values as an existing `:root` var ladder. These selectors are candidates to adopt the same var.
+
+Detection: for each `:root` var ladder (e.g. `--container-max` overridden at 8 breakpoints with values 1500 / 1300 / 1200 / 900 / 800 / 700 / 350 / 300px), find other selectors that override the same property to the same values at the same breakpoints. A match on 4+ breakpoints is sufficient.
+
+**Process:**
+1. Add `property: var(--existing-token)` to the selector's base rule.
+2. Remove its per-breakpoint entries from the MQ blocks. If an entry only contained that property, remove the entire selector block. If it also contained other declarations, remove only the property line.
+3. Annotate the base rule addition and note lines removed.
+
+**Exception**: if the selector uses `!important` on that property in any breakpoint, the var approach requires `!important` on the base rule too. Flag with `[optimize-css:warn]` and leave for manual decision — do not apply automatically. The `!important` likely indicates an external conflict (inline style, framework override) — see Case 3 in Phase 1.
 
 ### Phase 6 — Token consolidation
 

@@ -1,3 +1,13 @@
 {
-  "duplicate_vars": "yes"
+  "duplicate_vars": {
+    "info": "Will merge duplicate CSS variables into one. Risc: loosing cross-file connections.",
+    "default": "yes"
+  },
+  "confirm_generated": {
+    "info": "Updating generated CSS poses risc of loosing compatibility or support. default:no is the safe option!",
+    "default": "ask",
+    "options": {
+      "wordpress": "no"
+    }
+  }
 }

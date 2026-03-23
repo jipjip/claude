@@ -1,0 +1,9 @@
+{
+  "confirm_generated": {
+    "info": "Prompt before editing any generated file. WordPress specifically is off-limits on this project — theme is managed by the client and regenerated regularly.",
+    "default": "ask",
+    "options": {
+      "wordpress": "no"
+    }
+  }
+}

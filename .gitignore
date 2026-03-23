@@ -1,0 +1,5 @@
+# Test scratch files
+tests/temp/
+
+# Claude project settings (local machine state, not source)
+.claude/

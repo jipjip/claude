@@ -1,0 +1,32 @@
+Expected prompt output — Case D (confirm_generated: "ask", no per-signal override)
+===================================================================================
+
+[optimize-css] WordPress child theme detected (Template: generatepress).
+Manual edits may be overwritten on theme update.
+
+Proceed? [y / n / -d / -n / -a]
+  y    proceed in current mode
+  n    quit — no changes made
+  -d   proceed in defensive mode (report only, safest)
+  -n   proceed in neutral mode
+  -a   proceed in aggressive mode
+
+Tip: set "confirm_generated": { "default": "yes" } in optimize-css.config.json to skip this prompt.
+
+---
+
+Expected responses:
+
+  y  → adds warn comment at top of file, proceeds with optimization
+  n  → stops, no changes made, no warn comment added
+  -d → adds warn comment, runs Phase 0–6 in defensive mode (report only)
+  -n → adds warn comment, runs Phase 0–6 in neutral mode
+  -a → adds warn comment, runs Phase 0–6 in aggressive mode
+
+---
+
+Expected bail report (Case A and Case C):
+
+[optimize-css] Stopped — WordPress child theme detected (Template: generatepress).
+confirm_generated is set to "no" [via config / per-signal override].
+No changes made. To proceed anyway, pass -d, -n, or -a as a CLI flag.

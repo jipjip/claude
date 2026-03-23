@@ -1,0 +1,49 @@
+/*
+ Theme Name:   GeneratePress Child
+ Theme URI:    https://generatepress.com
+ Description:  Default GeneratePress child theme
+ Author:       Tom Usborne
+ Template:     generatepress
+ Version:      0.1
+*/
+
+/* Scenario 11 — confirm_generated config setting
+   Three config files test three distinct behaviors.
+   Run each with its own config to verify the correct response.
+
+   Case A — config-no.json (confirm_generated: "no")
+   Expected: skill detects WordPress header, bails out immediately.
+   No edits, no warn comment added. Report states why.
+
+   Case B — config-yes.json (confirm_generated: "yes")
+   Expected: skill detects WordPress header, proceeds without prompting.
+   Adds warn comment at top, runs optimization normally.
+
+   Case C — config-ask-options.json (confirm_generated: ask, options.wordpress: "no")
+   Expected: per-signal override kicks in — no prompt shown, bail out.
+   Same result as Case A but via options override rather than default.
+
+   Case D — confirm_generated: "ask" (no config file / default)
+   Expected: skill pauses and shows the confirmation prompt.
+   See expected-prompt.txt for the exact prompt text and valid responses.
+*/
+
+:root {
+    --main: #dd7619;
+    --white: #ffffff;
+}
+
+.site-header .inside-header {
+    padding: 20px 0px;
+    max-width: 1200px;
+}
+
+.main-navigation {
+    background-color: transparent;
+}
+
+@media (max-width: 768px) {
+    .site-header .inside-header {
+        max-width: 700px;
+    }
+}
