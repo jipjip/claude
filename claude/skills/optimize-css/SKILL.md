@@ -53,6 +53,20 @@ If any of the following are detected, stop and report — the skill does not app
 
 Report which framework was detected and why optimization does not apply.
 
+### Bail-out: page builder output
+
+If any of the following are detected, stop and report — the file is generated output, not source CSS. Editing it directly will be overwritten on the next build or cache regeneration:
+
+- **Elementor**: `.elementor-` prefix on the majority of selectors, `--e-a-` custom property namespace, `eicon-` keyframe or font-family references
+- **Divi**: `.et_pb_` prefix, `.et-` utility selectors, inline `style` attributes referencing `et_pb` modules
+- **Beaver Builder**: `.fl-` prefix throughout, `.fl-builder-` selectors
+- **WPBakery**: `.vc_` or `.wpb_` prefix on the majority of selectors
+- **Oxygen Builder**: `.ct-` prefix with numbered suffixes (e.g. `.ct-section-123456`)
+- **Bricks Builder**: `.brxe-` prefix
+- **General signal**: a class-per-layout-state density where class names encode responsive behaviour (e.g. `elementor-tablet-align-left`, `elementor-mobile_extra-align-justify`) — these are generated utility matrices, not authored styles
+
+Report which builder was detected and explain that the source is the builder's settings (database, visual editor), not this file. Note the correct optimization lever (e.g. disable unused breakpoints in Elementor settings, remove unused widget types).
+
 ### Dialect detection
 
 Identify the CSS dialect from extension and content:
@@ -263,6 +277,33 @@ Integrate these checks into the appropriate phases above.
 ### Dead CSS
 - Flag selectors with no matching element in the HTML (aggressive mode only — requires HTML file).
 - In neutral/defensive mode, note that dead CSS check was skipped (no HTML available).
+
+### Longhand-to-shorthand: `inset`
+- Flag `top: 0; right: 0; bottom: 0; left: 0` → suggest `inset: 0`. Also applies when all four share the same non-zero value.
+- **Neutral/Aggressive**: replace with `inset`. **Defensive**: flag with suggested replacement.
+- Annotate: `/* [optimize-css] top/right/bottom/left → inset: 0 */`
+
+### `transition: all` and invalid timing functions
+- Flag any `transition: all …` as a performance issue — `all` forces the browser to check every animatable property on every frame. Suggest listing only the properties actually changing.
+- **All modes**: `[optimize-css:warn]` — naming the right properties requires knowing the element's behaviour; no automatic fix.
+- Separately, scan all timing function values for invalid keywords (e.g. `ease-in-ease-out` — not a valid CSS value; silently falls back to `ease`). Flag with `[optimize-css:warn]` and suggest the correct value (`ease-in-out`).
+
+### `background-size` / `background-position` without `background-image`
+- Flag selectors that declare `background-size` or `background-position` but have no `background-image`, `background`, or `background-color` in the same rule.
+- These declarations only take effect when an image is present. If the image is set inline or via JS, they are safe — but worth flagging.
+- **All modes**: `[optimize-css:warn]` — cannot determine whether image is set externally.
+
+### CSS custom property name length (applies to Phases 5 and 6)
+- When generating a new custom property name, keep it to **16 characters or fewer** (excluding the `--` prefix).
+- If the natural name would exceed this limit, apply abbreviation: remove vowels from the longest segment first, then shorten further if still over. For font families, abbreviate the family name portion: `--ff-sofia-condensed` → `--ff-sofiac`.
+- Annotate if a name was shortened: `/* [optimize-css] --ff-sofia-condensed shortened to --ff-sofiac — name length limit */`
+
+### Responsive typography vars (Phase 5 extension)
+- When multiple heading-level selectors on the same base class (e.g. `h1.big-title`, `h2.big-title`, `h3.big-title`) each have MQ overrides for `font-size` and/or `line-height`, introduce per-level vars on the base class rather than repeating each heading selector in the MQ.
+- Naming convention: abbreviate base class + heading level: `.big-title` → `--bt`, levels `h1`–`h6` → `--bth1`, `--bth2`, etc.
+- Base property: `font-size: 6rem` → `font-size: var(--bth1-fs, 6rem)`
+- MQ: instead of `h1.big-title { font-size: 4rem }`, use `.big-title { --bth1-fs: 4rem; --bth2-fs: 3rem; --bth3-fs: 2rem; }` — one selector covers all levels.
+- **Aggressive only**: apply transformation. **Neutral/Defensive**: flag the opportunity and suggest the var names.
 
 ## Step 4 — Report
 

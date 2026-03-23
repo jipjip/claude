@@ -18,6 +18,10 @@
 
 - Selector compaction using `:is()` and `:where()`: after MQ consolidation, identify groups of selectors in the same block that share identical declarations and can be merged. Use `:is()` when the highest specificity in the group should be preserved (e.g. `.component` and `.component .title` both setting `font-family` → `:is(.component, .component .title)`). Use `:where()` when zero specificity is explicitly desired. Flag cases where the specificity change would alter the cascade.
 
+## Should Have (patterns)
+
+- **Orphan utility selectors in MQ** — `.v-margin`, `.v-padding` and similar layout utilities that have no parent component show up directly in media query blocks (e.g. `@media (max-width: 767px) { .v-margin { margin-top: 2rem } }`). These are candidates for hoisting the value to a `:root`-level var override: declare the base value as a custom property on `:root`, update the utility class to use `var()`, and reduce the MQ block to `@media (…) { :root { --vm: 2rem } }`. This is Phase 5 with `:root` as the parent — the spec currently only hoists to component parents. Needs a cost/benefit gate (var name overhead vs. repetition count). Aggressive only.
+
 ## Should Have (config) ← next sprint candidate
 
 - Settings file (`optimize-css.config.json`) in the project root. Needed for correctness, not just convenience — some skill decisions are ambiguous without user intent. CLI arguments take precedence. Key settings identified so far:
