@@ -16,6 +16,13 @@ From v1.0.0 onward: **semantic versioning** — `v[MAJOR].[MINOR].[PATCH]`
 
 ## Pre-release history
 
+### 0.95 — 2026-03-23
+
+- Phase 1: added `@scope` as a formal specificity-reduction technique with detection criteria, process, and browser requirement annotation
+- Phase 1: documented the **cross-pass interaction** between `@scope` and shared base extraction — the failure mode where @scope base specificity silently outranks a consolidated MQ override; added bidirectional safety checks for both techniques
+- Phase 1, tag selector exception: added pointer to the @scope interaction warning
+- Metadata version bump: 0.93 → 0.95 (0.94 was changelog-only; 0.95 is the first version where SKILL.md and CHANGELOG are back in sync)
+
 ### 0.94 — 2026-03-23
 
 - Added `browser_targets` setting: `modern | broad | legacy` (default: `broad`) — gates which modern CSS features the skill may suggest or apply

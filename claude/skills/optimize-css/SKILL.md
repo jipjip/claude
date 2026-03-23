@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.93"
+  version: "0.95"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -243,6 +243,8 @@ When 3 or more component-scoped selectors target the same sub-element and share 
 .inner-container h2 { font-size: 25px; }
 ```
 
+**⚠ Cross-pass interaction — tag selector consolidation + @scope (critical):** Before extracting, check whether any of the affected sections also have a base rule targeting the same property inside an `@scope` block. If so, compute the @scope inner selector's specificity (scope root excluded) and verify the consolidated selector is at least as specific. See `@scope` section below for the full safety check and failure mode.
+
 #### Wildcard / structural selectors
 
 Scan for selectors containing universal wildcards used as structural tools:
@@ -303,6 +305,62 @@ color: red;
 /* [optimize-css:warn] !important — conflict likely external (wc- prefix suggests WooCommerce); do not remove without checking plugin CSS */
 color: green !important;
 ```
+
+#### Specificity reduction via `@scope`
+
+For components with many deeply-nested selectors, wrapping the component's base rules in `@scope (.component)` removes the section prefix from every selector's specificity — the scope root is not counted in specificity matching. The actual selectors become shorter; each rule drops one specificity unit.
+
+**When to apply (aggressive mode + `browser_targets: modern` only):**
+- Component has ≥ 3 nested rules at depth 3+ (e.g. `.section .inner-container .wrapper .element`)
+- Component is bounded by a single root class with no naming conflicts
+- The component does not need its base rules overridden by anything outside it with lower specificity
+
+**Process:**
+1. Leave the root rule outside: `.home-section3 { padding-top: 80px; }`
+2. Wrap all nested rules in `@scope (.home-section3) { … }` and strip the `.home-section3` prefix from each inner selector
+3. Annotate with specificity delta and browser requirement:
+```css
+/* [optimize-css] @scope reduces selector depth; deepest rule drops from 0,3,1 to 0,2,1 */
+/* [optimize-css:warn] @scope requires Chrome 118+, Safari 17.4+, Firefox 128+ — verify browser targets before deploying */
+@scope (.home-section3) {
+    .inner-container .gb-grid-wrapper { … }
+}
+```
+
+**`@scope` and CSS custom property inheritance:** `@scope` is transparent to custom property inheritance. A var set on `.section { --_var: value; }` outside the scope still resolves normally inside the scoped rules. MQ overrides that set vars on the component root work correctly.
+
+---
+
+**⚠ Cross-pass interaction — `@scope` + shared base extraction (critical)**
+
+These two techniques are mutually constraining when they target the same property on the same element type. Applied together without a specificity check, they can silently reverse the intended cascade — MQ overrides stop overriding.
+
+**The failure mode (observed in wildtest.css):**
+
+| | Before | After consolidation | After @scope |
+|---|---|---|---|
+| Base rule | `.section .inner-container .wrapper>div h2 { font-size: 36px }` **(0,3,1)** | unchanged | `@scope (.section) { .inner-container .wrapper>div h2 }` **(0,2,1)** |
+| MQ override | `.section .inner-container .wrapper>div h2 { font-size: 25px }` **(0,3,1)** | `.inner-container h2 { font-size: 25px }` **(0,1,1)** | unchanged |
+| Result at MQ | MQ wins (same specificity, later source) ✓ | MQ wins (0,3,1 vs 0,1,1) ✓ | **@scope base wins (0,2,1 vs 0,1,1) ✗** |
+
+Both transforms are individually correct. Combined, the @scope base rule outranks the consolidated MQ override and the MQ override silently fails.
+
+**Safety check — before applying shared base extraction to an MQ override:**
+1. For each section whose selector is being consolidated, check if that section has (or will have) an `@scope` base rule for the same property.
+2. Compute the @scope inner selector's specificity (exclude the scope root).
+3. If the consolidated selector's specificity is lower: **do not consolidate** — keep the per-section MQ selector at its original specificity. Alternatively, adjust the consolidated selector to match the @scope inner selector's depth.
+
+**Safety check — before applying `@scope` to a section:**
+1. For each property in the component's base rules, check if any MQ override for that property has already been consolidated to a lower-specificity selector.
+2. Compare the @scope inner selector's specificity (scope root excluded) against the consolidated MQ selector's specificity.
+3. If the inner selector is more specific: the MQ override will silently fail. Options:
+   - (a) Restore the per-section MQ selector at its original specificity — do not consolidate for this section
+   - (b) Flatten the @scope inner selector to match or fall below the consolidated MQ rule's specificity
+   - (c) Flag with `[optimize-css:warn]` and leave for manual resolution
+
+**Ordering rule:** When both techniques are applied in the same session, verify the full specificity relationship after both passes complete — not just at each pass independently.
+
+---
 
 ### Phase 2 — Component hierarchy mapping
 
