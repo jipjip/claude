@@ -68,6 +68,11 @@
   - `phases: []` — opt individual phases on/off
   - Start small: first version only needs `duplicate_vars` and `mode` to be immediately useful
 
+## Should Have (quick-scan refinement)
+
+- **Weighted scoring model for Step 2b**: the current signal table uses simple high/medium/low weights and a threshold count. As we gather more test data, refine the weights and thresholds based on actual token savings observed. A file with `@layer` + tokens + zero `!important` but terrible MQ placement might still benefit from Phase 3. The scoring should be tunable, not just a count.
+- **Quick-scan for SCSS files**: the current signals are CSS-focused. SCSS files with `$variable` systems have their own "already optimized" indicators (well-structured partials, `@use` / `@forward` module system, no raw color values). Add SCSS-specific signals to Step 2b.
+
 ## Could Have
 
 - Rewrite to Mobile First: detect desktop-first patterns (max-width queries, base styles assuming large screen) and convert the file to a mobile-first structure — base styles become the smallest viewport, queries become min-width ascending.

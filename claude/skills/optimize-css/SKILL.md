@@ -5,7 +5,7 @@ argument-hint: "[-d|-n|-a | defensive|neutral|aggressive] <file>"
 license: Complete terms in LICENSE.txt
 metadata:
   author: JipJip.com
-  version: "0.95"
+  version: "0.98"
 ---
 
 Review and optimize the CSS in `$ARGUMENTS`.
@@ -123,6 +123,35 @@ Config: optimize-css.config.json
   confirm_generated — Editing generated CSS risks losing compatibility. 'no' is the safest option.
 ```
 
+### 1c — Structural pre-parse
+
+Before reading the full CSS file, run the structural parser to generate a compact index:
+
+```
+python3 tools/parse-structure.py <target-file> --pretty
+```
+
+The parser produces a JSON index containing:
+- **File metadata**: line count, byte size, dialect, inline CSS extraction info
+- **Rules**: selector name, line range, property count, nesting depth, tag descendants
+- **Media queries**: condition, direction (mobile/desktop-first), breakpoint value, contained selectors
+- **Keyframes**: name, line range
+- **`:root` vars**: name, value
+- **`@layer` / `@scope` blocks**: names, line ranges
+- **Color frequency**: hardcoded hex/rgb values and their occurrence counts
+- **`!important` locations**: count and line numbers
+- **Wildcard selectors**: locations
+- **Quick-scan signals**: weighted optimization indicators with a score and verdict
+
+The index is typically **30–50%** of the original file size in bytes and much smaller in tokens (structured JSON vs. raw CSS). It replaces the need to read the full file for:
+- Step 2 (Phase 0 detection) — dialect, framework, generated file signals are all in the index
+- Step 2b (quick-scan) — the `signals` object provides the score directly
+- Phase routing — deciding which phases to run based on what the file contains
+
+**When to read the full file:** Only after the index confirms the file needs optimization and the relevant phases are identified. Read specific line ranges (from the index) rather than the entire file when possible.
+
+The parser handles inline CSS extraction automatically (`.html`, `.astro`, `.svelte`, `.vue` files) and reports the `<style>` block line offsets so edits can be written back correctly.
+
 ## Step 2 — Pre-flight detection (Phase 0)
 
 Before running any optimization phase, identify what the file is and whether it can be processed. If Phase 0 fails, stop immediately — do not proceed to the optimization phases.
@@ -166,6 +195,18 @@ Signals:
 /* [optimize-css:warn] WordPress theme stylesheet detected (Template: generatepress). Manual edits may be overwritten on theme update. Confirm edits are safe to commit before applying. */
 ```
 
+### Inline CSS extraction
+
+If the target is an `.html`, `.astro`, `.svelte`, `.vue`, or similar single-file component, the CSS may be inside a `<style>` tag rather than in a standalone `.css` file.
+
+**Process:**
+1. Locate the `<style>` block(s) in the file. If multiple `<style>` blocks exist, process each independently.
+2. Extract the CSS content between the opening `<style…>` and closing `</style>` tags.
+3. Run all subsequent phases on the extracted CSS.
+4. Write edits back into the `<style>` block, preserving the surrounding HTML.
+
+If no `<style>` block is found and the file is not a CSS/SCSS file, stop and report — no CSS to process.
+
 ### Dialect detection
 
 Identify the CSS dialect from extension and content:
@@ -173,6 +214,7 @@ Identify the CSS dialect from extension and content:
 | Dialect | Signals | Supported |
 | --- | --- | --- |
 | Plain CSS | `.css`, no preprocessor syntax | Yes |
+| Plain CSS (inline) | `.html` / `.astro` / `.svelte` / `.vue` with `<style>` block | Yes — extract first |
 | SCSS | `.scss`, `$variable`, `@mixin`, `@include`, `&` nesting with braces | Yes — see scope below |
 | SASS (indented) | `.sass`, indented syntax without braces or semicolons | No — stop and report |
 | LESS | `.less`, `@variable: value`, `.mixin()` calls | No — stop and report |
@@ -189,6 +231,57 @@ If SCSS is detected, mark these constructs as out-of-scope before any phase runs
 - Variables flagged `!default` — library convention, hands off
 
 Report what was detected and what will be skipped before proceeding to Phase 1.
+
+## Step 2b — Quick-scan analysis (optimization potential)
+
+After Phase 0 confirms the file is processable, do a fast structural scan — **no edits** — to estimate optimization potential. If the file is already well-optimized, a full multi-phase pass wastes tokens with negligible return. This step decides whether to proceed to Step 3 or stop early with a summary report.
+
+### Signals to check
+
+Scan the file for these indicators. Each signal has a weight:
+
+| Signal | Weight | What it means |
+| --- | --- | --- |
+| `:root` or `*` block with custom properties | high | Token system already in place — Phase 5/6 have little to add |
+| `@layer` declarations | high | Cascade already managed — specificity work is minimal |
+| `@scope` declarations | medium | Specificity reduction already applied |
+| Native CSS nesting (`&`) | medium | Modern CSS patterns in use |
+| MQs already at bottom of file | medium | Phase 3 consolidation not needed |
+| Keyframes after MQs | low | Phase 4 already satisfied |
+| Zero `!important` | medium | Phase 1 `!important` resolution not needed |
+| Max selector depth ≤ 3 | medium | De-nesting has limited value |
+| Hardcoded colors < 5 distinct values | medium | Token extraction has limited value |
+
+### Decision
+
+Count how many high/medium signals are present:
+
+- **5+ signals (3+ high/medium)**: the file is already well-optimized. Output a **clean bill of health** report (see Step 4) and stop. Do not proceed to Step 3.
+- **3–4 signals**: the file is partially optimized. Proceed to Step 3 but note in the report that some phases will produce no findings.
+- **0–2 signals**: the file has significant optimization potential. Proceed to Step 3 normally.
+
+### Clean bill of health (early exit)
+
+When the quick-scan determines optimization potential is low, output a short report:
+
+```
+[optimize-css] Quick-scan analysis — file is already well-optimized.
+
+Signals detected:
+  ✓ Custom property token system in :root (N vars)
+  ✓ @layer cascade control (N layers)
+  ✓ Zero !important
+  ✓ Max selector depth: 3
+  ✓ Media queries at end of file
+  ✓ Keyframes after media queries
+
+Minor observations:
+  - [any small flags from the scan, e.g. naming inconsistencies, unused vars]
+
+No optimization phases applied — the expected benefit does not justify the cost.
+```
+
+This report is valuable feedback: it confirms the CSS meets quality standards and names the specific patterns that make it well-structured.
 
 ## Step 3 — Optimization process
 
@@ -362,6 +455,31 @@ Both transforms are individually correct. Combined, the @scope base rule outrank
 
 ---
 
+#### Cascade management via `@layer`
+
+`@layer` controls the cascade order at a file-wide level. Unlike `@scope` (which reduces specificity per-selector), `@layer` defines explicit precedence tiers for entire groups of rules — rules in later layers beat rules in earlier layers regardless of specificity.
+
+**Recognition (all modes):**
+
+When the file uses `@layer`, recognize it as an intentional cascade management strategy and work within it:
+
+1. **Map the layer order**: find the `@layer` order declaration (e.g. `@layer reset, defaults, layouts, components, utilities, states;`) or infer it from the sequence of `@layer { }` blocks.
+2. **Respect the tiers**: do not move rules between layers. A Phase 3 MQ consolidation must keep consolidated rules in the same layer they came from.
+3. **Un-layered rules beat all layers**: CSS outside any `@layer` sits in the implicit highest tier. If the file mixes layered and un-layered rules, note this in the report — it may be intentional (overrides) or accidental (forgotten layer wrapper).
+
+**Suggestion (aggressive + `browser_targets: modern`):**
+
+If the file has no `@layer` declarations but has clear structural groups (e.g. a reset section, a component section, a utility section), suggest adopting `@layer` to formalize the cascade intent. Do not auto-apply — `@layer` changes cascade order and can break existing specificity-based overrides.
+
+**When to flag:**
+- Two layer names that differ by only a character (e.g. `layout` vs `layouts`) — likely a typo
+- A `@layer` block that is empty — dead code or placeholder
+- Rules inside `@layer` that use `!important` — `!important` inverts layer order (important rules in earlier layers win), which is counterintuitive and likely unintended
+
+**Gated by `browser_targets`:** see the feature gate table in Step 1b. `@layer` is "suggest only" at `modern` and skipped at `broad`/`legacy`.
+
+---
+
 ### Phase 2 — Component hierarchy mapping
 
 Identify the parent block of each component. If a component is used inside another component, note the relationship — it informs where CSS variables should be hoisted in Phase 5.
@@ -463,6 +581,17 @@ Detection: for each `:root` var ladder (e.g. `--container-max` overridden at 8 b
 
 **Exception**: if the selector uses `!important` on that property in any breakpoint, the var approach requires `!important` on the base rule too. Flag with `[optimize-css:warn]` and leave for manual decision — do not apply automatically. The `!important` likely indicates an external conflict (inline style, framework override) — see Case 3 in Phase 1.
 
+**Safety check — base value mismatch:**
+
+Before adopting a var ladder, verify that adoption doesn't silently change desktop (base) behavior:
+
+1. Find the selector's own base declaration for the property (outside any MQ block).
+2. Find the var's `:root` initialization value.
+3. If both exist and differ, adoption is **unsafe** — the selector's desktop value would change to the var's base. Do not adopt; flag with `[optimize-css:warn]` and note the mismatch.
+4. If the var's base is a neutral sentinel (e.g. `none` for `max-width`) and a lower-specificity rule supplies the real desktop value, adoption is still **unsafe** — the adopted rule would now win at desktop with `none`, defeating the lower-specificity fallback. Flag the same way.
+
+_Root cause of this failure mode: ladder detection only compares MQ breakpoint values, not the base value. The two may match at every breakpoint while diverging at desktop — adoption changes cascade order without changing any MQ line._
+
 ### Phase 6 — Token consolidation
 
 Scan the full file for three classes of issues. In SCSS files, only CSS custom properties (`--var`) are in scope — `$variable` declarations are out-of-scope and are not touched.
@@ -544,7 +673,13 @@ Integrate these checks into the appropriate phases above.
 
 ## Step 4 — Report
 
-Structure output differently per mode:
+Structure output differently per mode and outcome:
+
+### Clean bill of health (early exit from Step 2b)
+
+When the quick-scan determines optimization potential is low, output a short summary instead of running the full process. This saves tokens while still providing valuable feedback — confirming the CSS meets quality standards.
+
+Include: the signals detected, any minor observations, and an explicit statement that no phases were applied. See Step 2b for the format.
 
 ### Defensive
 Full report, no changes made:

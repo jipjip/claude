@@ -16,6 +16,29 @@ From v1.0.0 onward: **semantic versioning** — `v[MAJOR].[MINOR].[PATCH]`
 
 ## Pre-release history
 
+### 0.98 — 2026-03-24
+
+- Added `tools/parse-structure.py` — zero-dependency CSS structural parser that generates a compact JSON index (selectors, MQ blocks, keyframes, `:root` vars, `@layer`/`@scope` blocks, color frequency, `!important` locations, wildcard selectors, quick-scan signals with score/verdict)
+- Parser handles inline CSS extraction from `.html`, `.astro`, `.svelte`, `.vue` files automatically
+- Parser detects modern MQ syntax (`width>`, `width>=`) for mobile-first direction classification
+- Added **Step 1c — Structural pre-parse** to SKILL.md: run the parser before reading the full file; use the index for Phase 0, Step 2b, and phase routing; read specific line ranges only when edits are needed
+- Index is typically 30–50% of original file size and enables early bail-out without consuming tokens on the full file
+
+### 0.97 — 2026-03-24
+
+- Added **Step 2b — Quick-scan analysis**: signal-based scoring system that estimates optimization ROI before running expensive phases; enables early exit with a clean-bill-of-health report when the file is already well-optimized
+- Signal table: `:root` vars, `@layer`, `@scope`, native nesting, MQ placement, zero `!important`, selector depth, hardcoded color count — each weighted high/medium/low
+- Decision thresholds: 5+ signals → clean bill of health + stop; 3–4 → proceed with notes; 0–2 → proceed normally
+- Phase 0: added **inline CSS extraction** — support for `<style>` blocks in `.html`, `.astro`, `.svelte`, `.vue` files; extract → process → write back
+- Dialect table extended with `Plain CSS (inline)` row
+- Phase 1: added **`@layer` cascade control** documentation — recognition rules (map layer order, respect tiers, note un-layered rules), suggestion criteria for aggressive + modern targets, flag conditions (similar layer names as typo detection, empty layers, `!important` inside layers)
+- `@layer` gated by `browser_targets` feature table (broad tier)
+- Step 4: added **clean-bill-of-health report path** for early exit from Step 2b — short summary format confirming what's already good
+
+### 0.96 — 2026-03-24
+
+- Phase 5 second-pass: added **ladder adoption base-value safety check** — before adopting a `:root` var ladder for a selector, verify that the selector's base (desktop) declaration matches the var's `:root` initialization value; if they differ, adoption silently changes desktop behavior and is marked unsafe
+
 ### 0.95 — 2026-03-23
 
 - Phase 1: added `@scope` as a formal specificity-reduction technique with detection criteria, process, and browser requirement annotation
